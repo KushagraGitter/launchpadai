@@ -15,9 +15,7 @@ RUN addgroup --system --gid 1001 appgroup && \
     adduser --system --uid 1001 --ingroup appgroup appuser && \
     chown -R appuser:appgroup /app
 
-RUN chmod +x start.sh
-
 USER appuser
 EXPOSE 8000
 
-CMD ["./start.sh"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WORKERS:-1} --log-level ${LOG_LEVEL:-info}"]
