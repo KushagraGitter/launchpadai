@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* ── Light theme (default / :root) ── */
+  :root,
+  .light {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 239 84% 67%;
+    --radius: 0.75rem;
+
+    /* Surface scale – light */
+    --surface-0: 210 40% 98%;
+    --surface-50: 210 40% 96%;
+    --surface-100: 220 14% 96%;
+    --surface-200: 220 13% 91%;
+    --surface-300: 216 12% 84%;
+    --surface-400: 215 16% 47%;
+    --surface-500: 215 19% 35%;
+    --surface-600: 215 25% 27%;
+    --surface-700: 217 33% 17%;
+    --surface-800: 222 47% 11%;
+    --surface-900: 224 71% 4%;
+    --surface-950: 224 71% 4%;
+  }
+
+  /* ── Dark theme ── */
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 240 5% 84%;
+    --card: 240 6% 7%;
+    --card-foreground: 240 5% 84%;
+    --popover: 240 6% 7%;
+    --popover-foreground: 240 5% 84%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4% 10%;
+    --secondary-foreground: 240 5% 84%;
+    --muted: 240 4% 10%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 13%;
+    --accent-foreground: 240 5% 84%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 239 84% 67%;
+
+    /* Surface scale – dark (original palette) */
+    --surface-0: 240 10% 4%;
+    --surface-50: 240 10% 5%;
+    --surface-100: 240 6% 7%;
+    --surface-200: 240 4% 10%;
+    --surface-300: 240 4% 13%;
+    --surface-400: 240 4% 16%;
+    --surface-500: 240 4% 26%;
+    --surface-600: 240 5% 34%;
+    --surface-700: 240 4% 46%;
+    --surface-800: 240 5% 65%;
+    --surface-900: 240 5% 84%;
+    --surface-950: 0 0% 98%;
+  }
+
+  .dark body {
+    @apply bg-background text-foreground;
+  }
+  .dark ::selection {
+    @apply bg-brand-600/30 text-white;
+  }
+  .light body {
+    @apply bg-background text-foreground;
+  }
+  .light ::selection {
+    @apply bg-brand-200 text-brand-900;
+  }
+
+  /* Prose overrides for light mode */
+  .light .prose-invert {
+    --tw-prose-body: hsl(var(--foreground));
+    --tw-prose-headings: hsl(var(--foreground));
+    --tw-prose-bold: hsl(var(--foreground));
+    --tw-prose-code: hsl(239 84% 67%);
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-500 hover:shadow-brand-500/30 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-secondary px-5 py-2.5 text-sm font-semibold text-foreground transition-all hover:bg-accent hover:border-border active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-foreground;
+  }
+  .input-field {
+    @apply block w-full rounded-xl border border-input bg-secondary px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground shadow-sm transition-colors focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500;
+  }
+  .card {
+    @apply rounded-2xl border border-border bg-card p-6;
+  }
+  .card-hover {
+    @apply rounded-2xl border border-border bg-card p-6 transition-all hover:border-border hover:bg-accent hover:shadow-lg hover:shadow-black/10 dark:hover:shadow-black/20;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-400 via-purple-400 to-pink-400 bg-clip-text text-transparent;
+  }
+}

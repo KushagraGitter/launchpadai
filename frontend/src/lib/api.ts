@@ -1,0 +1,364 @@
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+interface FetchOptions extends RequestInit {
+  token?: string;
+  _retried?: boolean;
+}
+
+class ApiError extends Error {
+  constructor(
+    public status: number,
+    public statusText: string,
+    public data: unknown
+  ) {
+    super(`API Error ${status}: ${statusText}`);
+    this.name = "ApiError";
+  }
+}
+
+let _refreshPromise: Promise<void> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  const refreshToken = typeof window !== "undefined" ? sessionStorage.getItem("refresh_token") : null;
+  if (!refreshToken) return false;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    sessionStorage.setItem("access_token", data.access_token);
+    sessionStorage.setItem("refresh_token", data.refresh_token);
+
+    const { useAuth } = await import("./auth");
+    useAuth.setState({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function refreshOnce(): Promise<boolean> {
+  if (_refreshPromise) {
+    await _refreshPromise;
+    return !!sessionStorage.getItem("access_token");
+  }
+
+  let resolve: () => void;
+  _refreshPromise = new Promise<void>((r) => { resolve = r; });
+
+  const ok = await tryRefreshToken();
+  _refreshPromise = null;
+  resolve!();
+  return ok;
+}
+
+async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+  const { token, _retried, headers: extraHeaders, ...rest } = options;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...Object.fromEntries(
+      Object.entries(extraHeaders || {}).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string"
+      )
+    ),
+  };
+
+  const currentToken = token || (typeof window !== "undefined" ? sessionStorage.getItem("access_token") : null);
+  if (currentToken) {
+    headers["Authorization"] = `Bearer ${currentToken}`;
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, { ...rest, headers });
+
+  if (response.status === 401 && !_retried && currentToken) {
+    const refreshed = await refreshOnce();
+    if (refreshed) {
+      return apiFetch<T>(endpoint, { ...options, _retried: true });
+    }
+
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("refresh_token");
+      const { useAuth } = await import("./auth");
+      useAuth.setState({ accessToken: null, refreshToken: null, user: null });
+    }
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new ApiError(response.status, response.statusText, data);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json();
+}
+
+export const api = {
+  auth: {
+    register: (data: { email: string; password: string; name: string }) =>
+      apiFetch<UserInfo>("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    login: (data: { email: string; password: string }) =>
+      apiFetch<{ access_token: string; refresh_token: string }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    refresh: (refreshToken: string) =>
+      apiFetch<{ access_token: string; refresh_token: string }>("/api/auth/refresh", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }),
+    me: (token: string) =>
+      apiFetch<UserInfo>("/api/auth/me", { token }),
+  },
+
+  projects: {
+    list: (token: string, skip = 0, limit = 20) =>
+      apiFetch<{ projects: Project[]; total: number }>(
+        `/api/projects?skip=${skip}&limit=${limit}`,
+        { token }
+      ),
+    get: (token: string, id: string) =>
+      apiFetch<Project>(`/api/projects/${id}`, { token }),
+    create: (token: string, data: { name: string; raw_idea: string; domain?: string; target_audience?: string }) =>
+      apiFetch<Project>("/api/projects", { method: "POST", body: JSON.stringify(data), token }),
+    update: (token: string, id: string, data: Partial<{ name: string; raw_idea: string }>) =>
+      apiFetch<Project>(`/api/projects/${id}`, { method: "PATCH", body: JSON.stringify(data), token }),
+    delete: (token: string, id: string) =>
+      apiFetch<void>(`/api/projects/${id}`, { method: "DELETE", token }),
+  },
+
+  phases: {
+    list: (token: string, projectId: string) =>
+      apiFetch<Phase[]>(`/api/projects/${projectId}/phases`, { token }),
+    run: (token: string, projectId: string, phaseType: string) =>
+      apiFetch<Phase>(`/api/projects/${projectId}/phases/run`, {
+        method: "POST",
+        body: JSON.stringify({ phase_type: phaseType }),
+        token,
+      }),
+    detail: (token: string, projectId: string, phaseType: string) =>
+      apiFetch<PhaseDetail>(`/api/projects/${projectId}/phases/${phaseType}`, { token }),
+    artifacts: (token: string, projectId: string, phaseType: string) =>
+      apiFetch<Artifact[]>(`/api/projects/${projectId}/phases/${phaseType}/artifacts`, { token }),
+    updateArtifact: (token: string, projectId: string, artifactId: string, data: { markdown_content?: string; title?: string }) =>
+      apiFetch<Artifact>(`/api/projects/${projectId}/artifacts/${artifactId}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        token,
+      }),
+    exportZip: async (token: string, projectId: string, phaseType: string) => {
+      const response = await fetch(`${API_BASE}/api/projects/${projectId}/export/${phaseType}?format=zip`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new ApiError(response.status, response.statusText, null);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${phaseType}_artifacts.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  },
+
+  subscriptions: {
+    current: (token: string) =>
+      apiFetch<SubscriptionInfo>("/api/subscriptions/current", { token }),
+    checkout: (token: string, plan: string) =>
+      apiFetch<CheckoutInfo>("/api/subscriptions/checkout", {
+        method: "POST",
+        body: JSON.stringify({ plan }),
+        token,
+      }),
+    verify: (token: string, data: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) =>
+      apiFetch<{ status: string; plan: string }>("/api/subscriptions/verify", {
+        method: "POST",
+        body: JSON.stringify(data),
+        token,
+      }),
+    cancel: (token: string) =>
+      apiFetch<{ status: string; message: string }>("/api/subscriptions/cancel", {
+        method: "POST",
+        token,
+      }),
+    history: (token: string) =>
+      apiFetch<PaymentRecord[]>("/api/subscriptions/history", { token }),
+  },
+};
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  name: string;
+  plan: "free" | "pro" | "team";
+  project_limit: number;
+  project_count: number;
+  created_at: string;
+}
+
+export interface SubscriptionInfo {
+  id: string;
+  plan: string;
+  status: string;
+  project_limit: number;
+  project_count: number;
+  razorpay_subscription_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  razorpay_payment_id: string;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
+export interface CheckoutInfo {
+  subscription_id: string;
+  razorpay_key_id: string;
+  razorpay_subscription_id: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  raw_idea: string;
+  domain: string | null;
+  target_audience: string | null;
+  status: string;
+  current_phase: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Phase {
+  id: string;
+  project_id: string;
+  phase_type: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface Artifact {
+  id: string;
+  phase_id: string;
+  agent_name: string;
+  artifact_type: string;
+  title: string;
+  content: Record<string, unknown> | null;
+  markdown_content: string | null;
+  created_at: string;
+}
+
+export interface AgentRun {
+  id: string;
+  phase_id: string;
+  crew_name: string;
+  agent_name: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  token_usage: Record<string, unknown> | null;
+  output_summary: string | null;
+  created_at: string;
+}
+
+export interface PhaseDetail {
+  phase: Phase;
+  artifacts: Artifact[];
+  agent_runs: AgentRun[];
+}
+
+export interface ChatMessage {
+  id: string;
+  project_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  metadata_: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ChatHistory {
+  messages: ChatMessage[];
+  project_name: string;
+  project_idea: string;
+}
+
+export const chatApi = {
+  history: (token: string, projectId: string) =>
+    apiFetch<ChatHistory>(`/api/projects/${projectId}/chat/history`, { token }),
+
+  sendMessage: async function* (
+    token: string,
+    projectId: string,
+    message: string
+  ): AsyncGenerator<{ type: string; content?: string; action?: string; phase?: string }> {
+    const currentToken = sessionStorage.getItem("access_token") || token;
+
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${currentToken}`,
+      },
+      body: JSON.stringify({ message }),
+    });
+
+    if (!response.ok) {
+      throw new ApiError(response.status, response.statusText, null);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) return;
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            yield JSON.parse(line.slice(6));
+          } catch {
+            // skip malformed chunks
+          }
+        }
+      }
+    }
+  },
+};
+
+export { ApiError };
