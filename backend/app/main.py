@@ -41,4 +41,38 @@ app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "app": settings.APP_NAME}
+    return {"status": "healthy", "app": settings.APP_NAME, "env": settings.APP_ENV}
+
+
+@app.get("/api/health/ready")
+async def readiness_check():
+    """Deep health check that verifies database and Redis connectivity."""
+    import redis.asyncio as aioredis
+    from sqlalchemy import text
+
+    checks: dict = {"app": "ok"}
+    healthy = True
+
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as exc:
+        checks["database"] = str(exc)
+        healthy = False
+
+    try:
+        r = aioredis.from_url(settings.REDIS_URL)
+        await r.ping()
+        await r.aclose()
+        checks["redis"] = "ok"
+    except Exception as exc:
+        checks["redis"] = str(exc)
+        healthy = False
+
+    status_code = 200 if healthy else 503
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        content={"status": "healthy" if healthy else "degraded", "checks": checks},
+        status_code=status_code,
+    )

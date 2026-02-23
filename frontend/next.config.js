@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: process.env.DOCKER_BUILD === "1" ? "standalone" : undefined,
   async rewrites() {
+    if (process.env.NEXT_PUBLIC_API_URL) return [];
     return [
       {
         source: "/api/:path*",

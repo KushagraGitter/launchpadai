@@ -1,0 +1,56 @@
+{
+  "family": "launchpadai-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/launchpadai-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\" || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "environment": [
+        { "name": "APP_ENV", "value": "production" },
+        { "name": "PORT", "value": "8000" },
+        { "name": "WORKERS", "value": "2" },
+        { "name": "LOG_LEVEL", "value": "warning" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/DATABASE_URL" },
+        { "name": "DATABASE_URL_SYNC", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/DATABASE_URL_SYNC" },
+        { "name": "REDIS_URL", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/REDIS_URL" },
+        { "name": "SECRET_KEY", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/SECRET_KEY" },
+        { "name": "OPENAI_API_KEY", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/OPENAI_API_KEY" },
+        { "name": "CORS_ORIGINS", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/CORS_ORIGINS" },
+        { "name": "RAZORPAY_KEY_ID", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/RAZORPAY_KEY_ID" },
+        { "name": "RAZORPAY_KEY_SECRET", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/RAZORPAY_KEY_SECRET" },
+        { "name": "RAZORPAY_WEBHOOK_SECRET", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/RAZORPAY_WEBHOOK_SECRET" },
+        { "name": "RAZORPAY_PLAN_PRO", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/RAZORPAY_PLAN_PRO" },
+        { "name": "RAZORPAY_PLAN_TEAM", "valueFrom": "arn:aws:ssm:us-east-1:ACCOUNT_ID:parameter/launchpadai/RAZORPAY_PLAN_TEAM" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/launchpadai-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
