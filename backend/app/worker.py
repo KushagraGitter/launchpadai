@@ -57,6 +57,8 @@ def run_worker() -> None:
             break
         except Exception as e:
             print(f"Worker error: {e}", file=sys.stderr)
+            import time
+            time.sleep(5)
 
 
 def dispatch_phase_job(phase_id: uuid.UUID) -> None:

@@ -12,9 +12,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --ingroup appgroup appuser && \
-    chown -R appuser:appgroup /app
+    adduser --system --uid 1001 --ingroup appgroup --home /home/appuser appuser && \
+    chown -R appuser:appgroup /app /home/appuser
 
+ENV HOME=/home/appuser
 USER appuser
 EXPOSE 8000
 
