@@ -15,7 +15,7 @@ class Artifact(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phase_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("phases.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("phases.id", ondelete="CASCADE"), nullable=False, index=True
     )
     agent_name: Mapped[str] = mapped_column(String(255), nullable=False)
     artifact_type: Mapped[str] = mapped_column(String(100), nullable=False)

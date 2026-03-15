@@ -2,13 +2,17 @@
 
 from crewai import Agent, Crew, Task, Process
 
-from app.agents.base import get_llm, build_context_string
+from app.agents.base import get_llm, get_search_tool, build_context_string
 
 
 def create_validation_crew(project_data: dict) -> Crew:
     """Create the Idea Validation crew for Phase 1."""
     llm = get_llm()
     context = build_context_string(project_data)
+
+    market_search = get_search_tool(search_depth="advanced", topic="finance", max_results=8)
+    tech_search = get_search_tool(topic="general", max_results=5)
+    persona_search = get_search_tool(topic="general", max_results=5)
 
     market_researcher = Agent(
         role="Market Research Analyst",
@@ -17,9 +21,11 @@ def create_validation_crew(project_data: dict) -> Crew:
             "You are a seasoned market research analyst with 15 years of experience "
             "analyzing startup ideas and market opportunities. You specialize in "
             "identifying market size (TAM/SAM/SOM), growth trends, competitive "
-            "landscape, and whitespace opportunities."
+            "landscape, and whitespace opportunities. You always back your claims "
+            "with real data from web searches."
         ),
         llm=llm,
+        tools=[t for t in [market_search] if t],
         verbose=True,
     )
 
@@ -29,9 +35,12 @@ def create_validation_crew(project_data: dict) -> Crew:
         backstory=(
             "You are a principal software architect who has built and scaled dozens "
             "of products. You evaluate ideas by assessing technical stack requirements, "
-            "complexity, time-to-MVP, infrastructure needs, and potential technical risks."
+            "complexity, time-to-MVP, infrastructure needs, and potential technical risks. "
+            "You search the web for current cloud pricing, framework benchmarks, and "
+            "technology comparisons."
         ),
         llm=llm,
+        tools=[t for t in [tech_search] if t],
         verbose=True,
     )
 
@@ -41,9 +50,12 @@ def create_validation_crew(project_data: dict) -> Crew:
         backstory=(
             "You are a UX research lead who specializes in building evidence-based "
             "user personas. You identify target segments, their core pain points, "
-            "current workarounds, willingness to pay, and jobs-to-be-done frameworks."
+            "current workarounds, willingness to pay, and jobs-to-be-done frameworks. "
+            "You search the web for audience demographics, industry surveys, and "
+            "community discussions to ground personas in real data."
         ),
         llm=llm,
+        tools=[t for t in [persona_search] if t],
         verbose=True,
     )
 
@@ -60,6 +72,12 @@ def create_validation_crew(project_data: dict) -> Crew:
         verbose=True,
     )
 
+    _search_instructions = (
+        "\n\nIMPORTANT: If you have a web search tool available, USE IT to find REAL, "
+        "current data. Do NOT fabricate statistics, market sizes, or competitor info. "
+        "Every data point should come from a real source. Cite your sources with URLs."
+    )
+
     market_task = Task(
         description=(
             f"Analyze the following idea and provide a comprehensive market research report:\n\n"
@@ -72,8 +90,13 @@ def create_validation_crew(project_data: dict) -> Crew:
             "4. Market Gaps: Opportunities the idea could exploit\n"
             "5. Market Risk Assessment: Key market risks\n\n"
             "Format your response as a structured markdown report."
+            + _search_instructions
+            + "\n\nSearch for queries like:\n"
+            "- '[idea domain] market size 2025 2026' for TAM/SAM/SOM data\n"
+            "- '[competitor names] pricing features' for competitive analysis\n"
+            "- '[industry] trends report' for market trends"
         ),
-        expected_output="A comprehensive market research report in markdown format",
+        expected_output="A comprehensive market research report in markdown format with cited sources",
         agent=market_researcher,
     )
 
@@ -90,8 +113,13 @@ def create_validation_crew(project_data: dict) -> Crew:
             "6. Technical Risks: Key technical challenges and mitigations\n"
             "7. Third-party Dependencies: APIs, services, data sources needed\n\n"
             "Format your response as a structured markdown report."
+            + _search_instructions
+            + "\n\nSearch for queries like:\n"
+            "- '[technology] pricing 2025' for current cloud/infrastructure costs\n"
+            "- '[framework A] vs [framework B] benchmark' for technology comparisons\n"
+            "- '[technology] best practices production' for stack recommendations"
         ),
-        expected_output="A technical feasibility assessment in markdown format",
+        expected_output="A technical feasibility assessment in markdown format with cited sources",
         agent=feasibility_analyst,
     )
 
@@ -107,8 +135,13 @@ def create_validation_crew(project_data: dict) -> Crew:
             "5. Willingness to Pay: Price sensitivity and expectations\n"
             "6. Acquisition Channels: Where to reach this persona\n\n"
             "Format your response as a structured markdown report."
+            + _search_instructions
+            + "\n\nSearch for queries like:\n"
+            "- '[target audience] demographics statistics' for audience data\n"
+            "- '[industry] user survey report' for pain points and behaviors\n"
+            "- '[domain] community discussions reddit' for real user sentiments"
         ),
-        expected_output="2-3 detailed user persona documents in markdown format",
+        expected_output="2-3 detailed user persona documents in markdown format with cited sources",
         agent=persona_builder,
     )
 

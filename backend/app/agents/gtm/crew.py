@@ -2,13 +2,15 @@
 
 from crewai import Agent, Crew, Task, Process
 
-from app.agents.base import get_llm, build_context_string
+from app.agents.base import get_llm, get_search_tool, build_context_string
 
 
 def create_gtm_crew(project_data: dict) -> Crew:
     """Create the Go-to-Market crew for Phase 4."""
     llm = get_llm()
     context = build_context_string(project_data)
+
+    channel_search = get_search_tool(topic="news", max_results=5)
 
     positioning_strategist = Agent(
         role="Positioning Strategist",
@@ -28,9 +30,12 @@ def create_gtm_crew(project_data: dict) -> Crew:
         backstory=(
             "You are a growth marketing expert who has launched 50+ products. You "
             "know which channels work for different audiences, how to sequence a "
-            "launch, and how to maximize initial traction with limited budget."
+            "launch, and how to maximize initial traction with limited budget. "
+            "You search the web for current channel effectiveness data, platform "
+            "demographics, and advertising cost benchmarks."
         ),
         llm=llm,
+        tools=[t for t in [channel_search] if t],
         verbose=True,
     )
 
@@ -83,9 +88,13 @@ def create_gtm_crew(project_data: dict) -> Crew:
             "3. Community Strategy: Where to build community, how to engage\n"
             "4. SEO Strategy: Key terms, content pillars\n"
             "5. Partnership Opportunities: Potential integrations or co-marketing\n"
-            "6. Budget Allocation: How to split $500-$2000 launch budget\n"
+            "6. Budget Allocation: How to split $500-$2000 launch budget\n\n"
+            "If you have a web search tool available, USE IT to find current data. "
+            "Search for queries like '[channel] advertising cost per click 2025', "
+            "'[platform] user demographics 2025', '[industry] marketing channel "
+            "effectiveness'. Use real cost benchmarks, not estimates. Cite sources."
         ),
-        expected_output="Channel strategy with specific tactics and budget allocation in markdown",
+        expected_output="Channel strategy with specific tactics, real cost data, and budget allocation in markdown",
         agent=channel_strategist,
         context=[positioning_task],
     )

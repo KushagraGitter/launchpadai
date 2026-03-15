@@ -10,6 +10,8 @@ from app.core.database import engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.agents.base import configure_langsmith
+    configure_langsmith()
     yield
     await engine.dispose()
 
@@ -25,8 +27,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

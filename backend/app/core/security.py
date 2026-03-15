@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -25,6 +26,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return ph.verify(hashed_password, plain_password)
     except VerifyMismatchError:
         return False
+
+
+def generate_secure_token() -> tuple[str, str]:
+    """Return (raw_token, hashed_token). Store the hash; send the raw token to the user."""
+    raw = secrets.token_urlsafe(32)
+    hashed = hashlib.sha256(raw.encode()).hexdigest()
+    return raw, hashed
+
+
+def hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode()).hexdigest()
 
 
 def create_access_token(subject: str, extra_claims: dict | None = None) -> str:

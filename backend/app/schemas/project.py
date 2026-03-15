@@ -18,6 +18,7 @@ class ProjectUpdate(BaseModel):
     raw_idea: str | None = Field(default=None, min_length=10, max_length=10000)
     domain: str | None = Field(default=None, max_length=255)
     target_audience: str | None = Field(default=None, max_length=2000)
+    use_v2_worker: bool | None = Field(default=None)
 
 
 class ProjectResponse(BaseModel):
@@ -28,6 +29,8 @@ class ProjectResponse(BaseModel):
     target_audience: str | None
     status: str
     current_phase: str | None
+    use_v2_worker: bool
+    constraints: dict | None = None
     created_at: datetime
     updated_at: datetime
 

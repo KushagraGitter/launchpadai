@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -14,27 +15,55 @@ from app.core.security import decode_token
 from app.models.phase import Phase
 from app.models.project import Project
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
 async def _redis_subscribe(channel: str):
-    """Async generator that yields messages from a Redis pub/sub channel."""
+    """Async generator that yields messages from a Redis pub/sub channel.
+
+    Reconnects automatically on failure with exponential back-off.
+    """
     import redis.asyncio as aioredis
 
-    r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-    pubsub = r.pubsub()
-    await pubsub.subscribe(channel)
-    try:
-        while True:
-            msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-            if msg and msg["type"] == "message":
-                yield msg["data"]
-            else:
-                await asyncio.sleep(0.1)
-    finally:
-        await pubsub.unsubscribe(channel)
-        await pubsub.close()
-        await r.close()
+    backoff = 1
+    max_backoff = 30
+
+    while True:
+        r = None
+        pubsub = None
+        try:
+            r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            pubsub = r.pubsub()
+            await pubsub.subscribe(channel)
+            backoff = 1
+
+            while True:
+                msg = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                if msg and msg["type"] == "message":
+                    yield msg["data"]
+                else:
+                    await asyncio.sleep(0.1)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug("Redis pub/sub error on channel %s: %s — retrying in %ds", channel, exc, backoff)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, max_backoff)
+        finally:
+            if pubsub:
+                try:
+                    await pubsub.unsubscribe(channel)
+                    await pubsub.close()
+                except Exception:
+                    pass
+            if r:
+                try:
+                    await r.close()
+                except Exception:
+                    pass
 
 
 @router.websocket("/ws/projects/{project_id}/agents")
@@ -80,21 +109,29 @@ async def agent_progress_ws(websocket: WebSocket, project_id: str):
         channel = f"agent_progress:{project_id}"
 
         async def stream_redis_events():
-            """Forward Redis pub/sub messages to the WebSocket client."""
+            """Forward Redis pub/sub messages to the WebSocket client.
+
+            _redis_subscribe handles its own reconnection, so this task
+            only exits on CancelledError or WebSocket write failure.
+            """
             try:
                 async for raw in _redis_subscribe(channel):
                     try:
                         event = json.loads(raw)
                         await websocket.send_json(event)
-                    except (json.JSONDecodeError, RuntimeError):
-                        break
+                    except RuntimeError:
+                        return
+                    except json.JSONDecodeError:
+                        continue
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 pass
 
         async def periodic_snapshot():
-            """Send full phase/agent status every 8 seconds as fallback."""
+            """Send full phase/agent status every 15 seconds as fallback."""
             while True:
-                await asyncio.sleep(8)
+                await asyncio.sleep(15)
                 try:
                     async with async_session() as db:
                         result = await db.execute(
@@ -125,8 +162,10 @@ async def agent_progress_ws(websocket: WebSocket, project_id: str):
                             "type": "snapshot",
                             "phases": progress_data,
                         })
+                except asyncio.CancelledError:
+                    raise
                 except RuntimeError:
-                    break
+                    return
                 except Exception:
                     pass
 
@@ -138,12 +177,24 @@ async def agent_progress_ws(websocket: WebSocket, project_id: str):
             except WebSocketDisconnect:
                 pass
 
+        async def send_heartbeat():
+            """Send periodic pings to keep the connection alive."""
+            try:
+                while True:
+                    await asyncio.sleep(30)
+                    await websocket.send_json({"type": "ping"})
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
         redis_task = asyncio.create_task(stream_redis_events())
         snapshot_task = asyncio.create_task(periodic_snapshot())
         ping_task = asyncio.create_task(receive_pings())
+        heartbeat_task = asyncio.create_task(send_heartbeat())
 
         done, pending = await asyncio.wait(
-            [redis_task, snapshot_task, ping_task],
+            [redis_task, snapshot_task, ping_task, heartbeat_task],
             return_when=asyncio.FIRST_COMPLETED,
         )
 
@@ -157,7 +208,10 @@ async def agent_progress_ws(websocket: WebSocket, project_id: str):
     except WebSocketDisconnect:
         pass
     except asyncio.TimeoutError:
-        await websocket.close(code=4001)
+        try:
+            await websocket.close(code=4001)
+        except RuntimeError:
+            pass
     except Exception:
         try:
             await websocket.close(code=1011)

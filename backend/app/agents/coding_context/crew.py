@@ -2,7 +2,7 @@
 
 from crewai import Agent, Crew, Task, Process
 
-from app.agents.base import get_llm, build_context_string
+from app.agents.base import get_llm, get_search_tool, build_context_string
 
 
 def create_coding_context_crew(project_data: dict) -> Crew:
@@ -10,15 +10,19 @@ def create_coding_context_crew(project_data: dict) -> Crew:
     llm = get_llm()
     context = build_context_string(project_data)
 
+    arch_search = get_search_tool(topic="general", max_results=5)
+
     architect = Agent(
         role="System Architect",
         goal="Design the complete system architecture from the PRD",
         backstory=(
             "You are a principal architect who designs scalable systems for startups. "
             "You make pragmatic technology choices, design clean architectures, and "
-            "create detailed technical specifications."
+            "create detailed technical specifications. You search the web for current "
+            "best practices, framework comparisons, and performance benchmarks."
         ),
         llm=llm,
+        tools=[t for t in [arch_search] if t],
         verbose=True,
     )
 
@@ -71,9 +75,13 @@ def create_coding_context_crew(project_data: dict) -> Crew:
             "5. Data Architecture: Database choice, caching strategy, file storage\n"
             "6. Infrastructure: Hosting, CI/CD, monitoring\n"
             "7. Security Architecture: Auth, encryption, RBAC\n"
-            "8. Scalability Plan: How to scale from MVP to 10K users\n"
+            "8. Scalability Plan: How to scale from MVP to 10K users\n\n"
+            "If you have a web search tool available, USE IT to find current best "
+            "practices, framework comparisons, and performance benchmarks. Search for "
+            "queries like '[framework] vs [alternative] 2025', '[database] scalability "
+            "best practices', or '[hosting provider] pricing tiers'. Cite sources."
         ),
-        expected_output="Complete system architecture document in markdown",
+        expected_output="Complete system architecture document in markdown with cited sources",
         agent=architect,
     )
 

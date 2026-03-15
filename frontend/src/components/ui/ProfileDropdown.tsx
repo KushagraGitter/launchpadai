@@ -50,7 +50,7 @@ export default function ProfileDropdown({ compact }: ProfileDropdownProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-accent transition-colors outline-none">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-purple-600 text-[11px] font-bold text-white shrink-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-purple-600 text-[11px] font-bold text-white shrink-0">
             {initials}
           </div>
           {!compact && (
@@ -66,7 +66,7 @@ export default function ProfileDropdown({ compact }: ProfileDropdownProps) {
         <div className="px-3 py-2.5">
           <p className="text-sm font-medium text-foreground truncate">{user.email}</p>
           <div className="flex items-center gap-1.5 mt-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-600/20 px-2 py-0.5 text-[10px] font-semibold text-brand-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
               <Zap className="h-2.5 w-2.5" />
               {planLabel}
             </span>

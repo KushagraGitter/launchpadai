@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,12 +12,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, async_session
 from app.models.chat_message import ChatMessage
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.chat import ChatHistoryResponse, ChatMessageResponse, ChatRequest
 from app.services.chat_orchestrator import chat_stream
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -39,14 +43,33 @@ async def send_chat_message(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Send a message and receive a streamed AI response via SSE."""
+    """Send a message and receive a streamed AI response via SSE.
+
+    The DB session from get_db closes when the handler returns, which is
+    BEFORE the StreamingResponse generator starts executing. So we open a
+    dedicated session inside the generator to avoid a dead-session error.
+    """
     await _verify_project_access(project_id, current_user.id, db)
+    user_id = current_user.id
 
     async def event_stream():
-        async for chunk in chat_stream(db, project_id, body.message):
-            yield f"data: {chunk}\n\n"
+        async with async_session() as stream_db:
+            try:
+                async for chunk in chat_stream(stream_db, project_id, body.message):
+                    yield f"data: {chunk}\n\n"
+            except Exception as exc:
+                logger.exception("chat_stream error for project %s", project_id)
+                yield f"data: {json.dumps({'type': 'error', 'content': 'An internal error occurred. Please try again.'})}\n\n"
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{project_id}/chat/history", response_model=ChatHistoryResponse)

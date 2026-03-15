@@ -1,0 +1,159 @@
+// Prisma schema mirroring the existing PostgreSQL database.
+// This file is READ-ONLY for the TS worker — all migrations are managed by Alembic in /backend.
+// Run `prisma generate` to regenerate the client after changes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  projects Project[]
+
+  @@map("users")
+}
+
+model Project {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  name           String   @db.VarChar(255)
+  rawIdea        String   @map("raw_idea")
+  domain         String?  @db.VarChar(255)
+  targetAudience String?  @map("target_audience")
+  status         String   @default("draft") @db.VarChar(50)
+  currentPhase   String?  @map("current_phase") @db.VarChar(50)
+  useV2Worker    Boolean  @default(false) @map("use_v2_worker")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  owner        User           @relation(fields: [userId], references: [id])
+  phases       Phase[]
+  chatMessages ChatMessage[]
+
+  @@map("projects")
+}
+
+enum PhaseType {
+  DISCOVERY
+  VALIDATION
+  PRD
+  CODING_CONTEXT
+  GTM
+
+  @@map("phasetype")
+}
+
+model Phase {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  phaseType   PhaseType @map("phase_type")
+  status      String    @default("pending") @db.VarChar(50)
+  startedAt   DateTime? @map("started_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  project   Project         @relation(fields: [projectId], references: [id])
+  artifacts Artifact[]
+  agentRuns AgentRun[]
+  feedback  PhaseFeedback[]
+
+  @@map("phases")
+}
+
+model Artifact {
+  id              String   @id @default(uuid()) @db.Uuid
+  phaseId         String   @map("phase_id") @db.Uuid
+  agentName       String   @map("agent_name") @db.VarChar(255)
+  artifactType    String   @map("artifact_type") @db.VarChar(100)
+  title           String   @db.VarChar(500)
+  content         Json?
+  markdownContent String?  @map("markdown_content")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  phase      Phase           @relation(fields: [phaseId], references: [id])
+  embeddings Embedding[]
+  feedback   PhaseFeedback[]
+
+  @@map("artifacts")
+}
+
+model AgentRun {
+  id            String    @id @default(uuid()) @db.Uuid
+  phaseId       String    @map("phase_id") @db.Uuid
+  crewName      String    @map("crew_name") @db.VarChar(255)
+  agentName     String    @map("agent_name") @db.VarChar(255)
+  status        String    @default("pending") @db.VarChar(50)
+  startedAt     DateTime? @map("started_at") @db.Timestamptz
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz
+  tokenUsage    Json?     @map("token_usage")
+  outputSummary String?   @map("output_summary") @db.VarChar(1000)
+  logs          Json?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  phase Phase @relation(fields: [phaseId], references: [id])
+
+  @@map("agent_runs")
+}
+
+// Embeddings table uses pgvector — Prisma maps this as Unsupported("vector(1536)").
+// We bypass Prisma for all embedding reads/writes and use $queryRaw / $executeRaw.
+model Embedding {
+  id         String   @id @default(uuid()) @db.Uuid
+  artifactId String   @map("artifact_id") @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  phaseType  String   @map("phase_type") @db.VarChar(50)
+  chunkText  String   @map("chunk_text")
+  embedding  Unsupported("vector(1536)")
+  metadata   Json?    @map("metadata")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  artifact Artifact @relation(fields: [artifactId], references: [id])
+
+  @@map("embeddings")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  role      String   @db.VarChar(20)
+  content   String
+  metadata  Json?    @map("metadata")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@map("chat_messages")
+}
+
+enum FeedbackType {
+  thumbs_up
+  thumbs_down
+  comment
+
+  @@map("feedbacktype")
+}
+
+model PhaseFeedback {
+  id           String       @id @default(uuid()) @db.Uuid
+  phaseId      String       @map("phase_id") @db.Uuid
+  artifactId   String?      @map("artifact_id") @db.Uuid
+  section      String       @db.VarChar(500)
+  feedbackType FeedbackType @map("feedback_type")
+  comment      String?
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  phase    Phase     @relation(fields: [phaseId], references: [id])
+  artifact Artifact? @relation(fields: [artifactId], references: [id])
+
+  @@map("phase_feedback")
+}

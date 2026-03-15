@@ -40,17 +40,17 @@ const config: Config = {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         brand: {
-          50: "#eef2ff",
-          100: "#e0e7ff",
-          200: "#c7d2fe",
-          300: "#a5b4fc",
-          400: "#818cf8",
-          500: "#6366f1",
-          600: "#4f46e5",
-          700: "#4338ca",
-          800: "#3730a3",
-          900: "#312e81",
-          950: "#1e1b4b",
+          50: "hsl(var(--brand-50))",
+          100: "hsl(var(--brand-100))",
+          200: "hsl(var(--brand-200))",
+          300: "hsl(var(--brand-300))",
+          400: "hsl(var(--brand-400))",
+          500: "hsl(var(--brand-500))",
+          600: "hsl(var(--brand-600))",
+          700: "hsl(var(--brand-700))",
+          800: "hsl(var(--brand-800))",
+          900: "hsl(var(--brand-900))",
+          950: "hsl(var(--brand-950))",
         },
         surface: {
           0: "hsl(var(--surface-0))",
@@ -87,6 +87,8 @@ const config: Config = {
         "slide-up": "slideUp 0.5s ease-out",
         "slide-in-right": "slideInRight 0.3s ease-out",
         "pulse-slow": "pulse 3s ease-in-out infinite",
+        "float-slow": "floatSlow 12s ease-in-out infinite",
+        "float-slower": "floatSlower 16s ease-in-out infinite",
       },
       keyframes: {
         gradient: {
@@ -104,6 +106,14 @@ const config: Config = {
         slideInRight: {
           from: { opacity: "0", transform: "translateX(20px)" },
           to: { opacity: "1", transform: "translateX(0)" },
+        },
+        floatSlow: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)", opacity: "0.3" },
+          "50%": { transform: "translate(0, -12px) scale(1.03)", opacity: "0.45" },
+        },
+        floatSlower: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)", opacity: "0.25" },
+          "50%": { transform: "translate(0, 10px) scale(1.05)", opacity: "0.4" },
         },
       },
     },

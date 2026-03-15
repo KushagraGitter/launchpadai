@@ -1,11 +1,17 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, enforce_project_limit
 from app.core.database import get_db
+from app.models.agent_run import AgentRun
+from app.models.artifact import Artifact
+from app.models.chat_message import ChatMessage
+from app.models.embedding import Embedding
+from app.models.phase import Phase
+from app.models.phase_feedback import PhaseFeedback
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.project import (
@@ -32,6 +38,7 @@ async def create_project(
         domain=body.domain,
         target_audience=body.target_audience,
         status="draft",
+        use_v2_worker=True,
     )
     db.add(project)
     await db.flush()
@@ -113,4 +120,13 @@ async def delete_project(
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    await db.delete(project)
+    phase_ids_q = select(Phase.id).where(Phase.project_id == project_id)
+    artifact_ids_q = select(Artifact.id).where(Artifact.phase_id.in_(phase_ids_q))
+
+    await db.execute(delete(Embedding).where(Embedding.artifact_id.in_(artifact_ids_q)))
+    await db.execute(delete(PhaseFeedback).where(PhaseFeedback.phase_id.in_(phase_ids_q)))
+    await db.execute(delete(AgentRun).where(AgentRun.phase_id.in_(phase_ids_q)))
+    await db.execute(delete(Artifact).where(Artifact.phase_id.in_(phase_ids_q)))
+    await db.execute(delete(Phase).where(Phase.project_id == project_id))
+    await db.execute(delete(ChatMessage).where(ChatMessage.project_id == project_id))
+    await db.execute(delete(Project).where(Project.id == project_id))

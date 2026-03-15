@@ -29,9 +29,31 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
     name: str
+    email_verified: bool = False
     plan: str = "free"
     project_limit: int = 1
     project_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str = Field(max_length=255)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(max_length=255)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class MessageResponse(BaseModel):
+    message: str

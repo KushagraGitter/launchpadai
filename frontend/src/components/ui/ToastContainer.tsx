@@ -14,14 +14,14 @@ const STYLES: Record<ToastType, string> = {
   success: "border-green-500/40 bg-green-500/10 text-green-300",
   error: "border-red-500/40 bg-red-500/10 text-red-300",
   warning: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  info: "border-brand-500/40 bg-brand-500/10 text-brand-300",
+  info: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
 };
 
 const ICON_COLORS: Record<ToastType, string> = {
   success: "text-green-400",
   error: "text-red-400",
   warning: "text-amber-400",
-  info: "text-brand-400",
+  info: "text-emerald-400",
 };
 
 export default function ToastContainer() {

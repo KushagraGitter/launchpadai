@@ -32,7 +32,7 @@ export default function SignupPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-brand-950/30 via-surface-0 to-surface-0" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-teal-950/30 via-surface-0 to-surface-0" />
 
       <div className="relative w-full max-w-sm">
         <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -42,7 +42,7 @@ export default function SignupPage() {
 
         <div className="card">
           <div className="text-center">
-            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 via-brand-500 to-purple-600">
+            <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600">
               <Rocket className="h-5 w-5 text-white -rotate-45" />
             </div>
             <h1 className="mt-4 text-xl font-bold text-foreground">Create your account</h1>
@@ -106,7 +106,7 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/auth/login" className="font-medium text-brand-400 hover:text-brand-300 transition-colors">
+            <Link href="/auth/login" className="font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
               Sign in
             </Link>
           </p>

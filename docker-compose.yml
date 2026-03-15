@@ -73,6 +73,23 @@ services:
         condition: service_healthy
     command: ["python", "-m", "app.worker"]
 
+  agent-worker:
+    build:
+      context: ./agent-worker
+      dockerfile: Dockerfile
+    env_file:
+      - ./agent-worker/.env
+    environment:
+      DATABASE_URL: postgresql://ideaos:ideaos_dev_pw@postgres:5432/ideaos
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend

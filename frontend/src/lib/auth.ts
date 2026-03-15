@@ -34,6 +34,9 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (err instanceof ApiError && err.status === 401) {
         throw new Error("Invalid email or password");
       }
+      if (err instanceof ApiError && err.status === 403) {
+        throw new Error("Please verify your email before signing in.");
+      }
       useToast.getState().add("error", "Login failed. Please try again.");
       throw err;
     }
@@ -41,8 +44,7 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   register: async (email: string, password: string, name: string) => {
     try {
-      await api.auth.register({ email, password, name });
-      const res = await api.auth.login({ email, password });
+      const res = await api.auth.register({ email, password, name });
       sessionStorage.setItem("access_token", res.access_token);
       sessionStorage.setItem("refresh_token", res.refresh_token);
       set({ accessToken: res.access_token, refreshToken: res.refresh_token });

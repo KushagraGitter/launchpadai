@@ -110,7 +110,7 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
 export const api = {
   auth: {
     register: (data: { email: string; password: string; name: string }) =>
-      apiFetch<UserInfo>("/api/auth/register", {
+      apiFetch<{ access_token: string; refresh_token: string }>("/api/auth/register", {
         method: "POST",
         body: JSON.stringify(data),
       }),
@@ -126,6 +126,26 @@ export const api = {
       }),
     me: (token: string) =>
       apiFetch<UserInfo>("/api/auth/me", { token }),
+    verifyEmail: (token: string) =>
+      apiFetch<{ message: string }>("/api/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      }),
+    resendVerification: (email: string) =>
+      apiFetch<{ message: string }>("/api/auth/resend-verification", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    forgotPassword: (email: string) =>
+      apiFetch<{ message: string }>("/api/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (token: string, password: string) =>
+      apiFetch<{ message: string }>("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      }),
   },
 
   projects: {
@@ -153,6 +173,17 @@ export const api = {
         body: JSON.stringify({ phase_type: phaseType }),
         token,
       }),
+    cancel: (token: string, projectId: string, phaseType: string) =>
+      apiFetch<Phase>(`/api/projects/${projectId}/phases/${phaseType}/cancel`, {
+        method: "POST",
+        token,
+      }),
+    rerunAgents: (token: string, projectId: string, phaseType: string, agentNames: string[]) =>
+      apiFetch<Phase>(`/api/projects/${projectId}/phases/${phaseType}/rerun-agents`, {
+        method: "POST",
+        body: JSON.stringify({ agent_names: agentNames }),
+        token,
+      }),
     detail: (token: string, projectId: string, phaseType: string) =>
       apiFetch<PhaseDetail>(`/api/projects/${projectId}/phases/${phaseType}`, { token }),
     artifacts: (token: string, projectId: string, phaseType: string) =>
@@ -178,6 +209,25 @@ export const api = {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     },
+    submitFeedback: (token: string, projectId: string, phaseType: string, feedback: FeedbackCreate) =>
+      apiFetch<PhaseFeedback>(`/api/projects/${projectId}/phases/${phaseType}/feedback`, {
+        method: "POST",
+        body: JSON.stringify(feedback),
+        token,
+      }),
+    listFeedback: (token: string, projectId: string, phaseType: string) =>
+      apiFetch<PhaseFeedback[]>(`/api/projects/${projectId}/phases/${phaseType}/feedback`, { token }),
+    acceptPhase: (token: string, projectId: string, phaseType: string) =>
+      apiFetch<Phase>(`/api/projects/${projectId}/phases/${phaseType}/accept`, {
+        method: "POST",
+        token,
+      }),
+    refine: (token: string, projectId: string, phaseType: string, agentNames: string[]) =>
+      apiFetch<Phase>(`/api/projects/${projectId}/phases/${phaseType}/refine`, {
+        method: "POST",
+        body: JSON.stringify({ agent_names: agentNames }),
+        token,
+      }),
   },
 
   subscriptions: {
@@ -209,6 +259,7 @@ export interface UserInfo {
   id: string;
   email: string;
   name: string;
+  email_verified: boolean;
   plan: "free" | "pro" | "team";
   project_limit: number;
   project_count: number;
@@ -251,6 +302,8 @@ export interface Project {
   target_audience: string | null;
   status: string;
   current_phase: string | null;
+  use_v2_worker: boolean;
+  constraints: Record<string, string> | null;
   created_at: string;
   updated_at: string;
 }
@@ -295,6 +348,25 @@ export interface PhaseDetail {
   agent_runs: AgentRun[];
 }
 
+export type FeedbackType = "thumbs_up" | "thumbs_down" | "comment";
+
+export interface FeedbackCreate {
+  artifact_id?: string | null;
+  section: string;
+  feedback_type: FeedbackType;
+  comment?: string | null;
+}
+
+export interface PhaseFeedback {
+  id: string;
+  phase_id: string;
+  artifact_id: string | null;
+  section: string;
+  feedback_type: FeedbackType;
+  comment: string | null;
+  created_at: string;
+}
+
 export interface ChatMessage {
   id: string;
   project_id: string;
@@ -319,16 +391,36 @@ export const chatApi = {
     projectId: string,
     message: string
   ): AsyncGenerator<{ type: string; content?: string; action?: string; phase?: string }> {
-    const currentToken = sessionStorage.getItem("access_token") || token;
+    let currentToken = sessionStorage.getItem("access_token") || token;
 
-    const response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${currentToken}`,
-      },
-      body: JSON.stringify({ message }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentToken}`,
+        },
+        body: JSON.stringify({ message }),
+      });
+    } catch (networkErr) {
+      throw new ApiError(0, "Network error — unable to reach the server", null);
+    }
+
+    if (response.status === 401) {
+      const refreshed = await refreshOnce();
+      if (refreshed) {
+        currentToken = sessionStorage.getItem("access_token") || currentToken;
+        response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${currentToken}`,
+          },
+          body: JSON.stringify({ message }),
+        });
+      }
+    }
 
     if (!response.ok) {
       throw new ApiError(response.status, response.statusText, null);
@@ -340,23 +432,29 @@ export const chatApi = {
     const decoder = new TextDecoder();
     let buffer = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          try {
-            yield JSON.parse(line.slice(6));
-          } catch {
-            // skip malformed chunks
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              yield JSON.parse(line.slice(6));
+            } catch {
+              // skip malformed chunks
+            }
           }
+          // SSE comments (keep-alive) are silently ignored
         }
       }
+    } catch (streamErr) {
+      yield { type: "error", content: "Connection was interrupted. Please try again." };
+      yield { type: "done" };
     }
   },
 };

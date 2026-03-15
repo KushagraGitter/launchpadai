@@ -3,9 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.phase import PhaseType
+from app.models.phase_feedback import FeedbackType
 
 
 class PhaseResponse(BaseModel):
@@ -56,3 +57,26 @@ class PhaseDetailResponse(BaseModel):
     phase: PhaseResponse
     artifacts: list[ArtifactResponse]
     agent_runs: list[AgentRunResponse]
+
+
+class PhaseFeedbackCreate(BaseModel):
+    artifact_id: uuid.UUID | None = None
+    section: str = Field(min_length=1, max_length=500)
+    feedback_type: FeedbackType
+    comment: str | None = Field(default=None, max_length=5000)
+
+
+class PhaseFeedbackResponse(BaseModel):
+    id: uuid.UUID
+    phase_id: uuid.UUID
+    artifact_id: uuid.UUID | None
+    section: str
+    feedback_type: str
+    comment: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PhaseRefineRequest(BaseModel):
+    agent_names: list[str] = Field(min_length=1)

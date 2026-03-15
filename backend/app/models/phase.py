@@ -12,6 +12,7 @@ from app.core.database import Base
 
 
 class PhaseType(str, enum.Enum):
+    DISCOVERY = "discovery"
     VALIDATION = "validation"
     PRD = "prd"
     CODING_CONTEXT = "coding_context"
@@ -23,7 +24,7 @@ class Phase(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
     phase_type: Mapped[PhaseType] = mapped_column(Enum(PhaseType), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="pending")
@@ -36,3 +37,4 @@ class Phase(Base):
     project: Mapped["Project"] = relationship(back_populates="phases")
     artifacts: Mapped[list["Artifact"]] = relationship(back_populates="phase", cascade="all, delete-orphan")
     agent_runs: Mapped[list["AgentRun"]] = relationship(back_populates="phase", cascade="all, delete-orphan")
+    feedback: Mapped[list["PhaseFeedback"]] = relationship(back_populates="phase", cascade="all, delete-orphan")

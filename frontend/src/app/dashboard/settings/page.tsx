@@ -167,7 +167,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
       </div>
     );
   }
@@ -203,7 +203,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3">
             <span className={`rounded-full px-3 py-1 text-sm font-semibold uppercase tracking-wider ${
               currentPlan === "team" ? "bg-purple-600/20 text-purple-300 border border-purple-500/30" :
-              currentPlan === "pro" ? "bg-brand-600/20 text-brand-300 border border-brand-500/30" :
+              currentPlan === "pro" ? "bg-emerald-600/20 text-emerald-300 border border-emerald-500/30" :
               "bg-muted text-muted-foreground"
             }`}>
               {currentPlan}
@@ -216,7 +216,7 @@ export default function SettingsPage() {
           <div className="mt-4">
             <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-600 to-purple-500 transition-all duration-700"
+                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-purple-500 transition-all duration-700"
                 style={{ width: `${Math.min(100, ((subscription.project_count || 0) / Math.max(subscription.project_limit, 1)) * 100)}%` }}
               />
             </div>
@@ -256,18 +256,18 @@ export default function SettingsPage() {
                 key={plan.id}
                 className={`rounded-2xl border-2 p-6 transition-all ${
                   plan.popular
-                    ? "border-brand-500/50 bg-card shadow-lg shadow-brand-500/5"
+                    ? "border-emerald-500/50 bg-card"
                     : "border-border bg-card hover:border-border"
                 }`}
               >
                 {plan.popular && (
-                  <span className="mb-3 inline-flex rounded-full bg-brand-600/20 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-brand-300 border border-brand-500/30">
+                  <span className="mb-3 inline-flex rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300 border border-emerald-500/30">
                     Most Popular
                   </span>
                 )}
                 <div className="flex items-center gap-3">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                    plan.popular ? "bg-brand-600/20 text-brand-400" : "bg-muted text-muted-foreground"
+                    plan.popular ? "bg-emerald-600/20 text-emerald-400" : "bg-muted text-muted-foreground"
                   }`}>
                     <PlanIcon className="h-5 w-5" />
                   </div>
@@ -301,7 +301,7 @@ export default function SettingsPage() {
                       disabled={checkoutLoading === plan.id}
                       className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
                         plan.popular
-                          ? "bg-gradient-to-r from-brand-600 to-purple-600 text-white hover:from-brand-500 hover:to-purple-500"
+                          ? "bg-gradient-to-r from-emerald-600 to-purple-600 text-white hover:from-emerald-500 hover:to-purple-500"
                           : "bg-secondary text-foreground hover:bg-accent"
                       } disabled:opacity-50`}
                     >
