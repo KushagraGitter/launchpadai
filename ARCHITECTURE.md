@@ -544,6 +544,7 @@ graph TB
     subgraph Railway["Railway / Cloud"]
         BE["FastAPI\nBackend\nPort 8000"]
         WKR["Worker Process\nPython worker.py"]
+        AGW["Agent Worker\nNode.js LangGraph"]
     end
 
     subgraph Supabase["Supabase"]
@@ -567,10 +568,15 @@ graph TB
     BE -->|LPUSH jobs| RDB
     WKR -->|BRPOP jobs| RDB
     WKR -->|PUBLISH events| RDB
+    AGW -->|BLPOP v2 jobs| RDB
+    AGW -->|PUBLISH events| RDB
     BE -->|SUBSCRIBE events| RDB
     WKR -->|INSERT artifacts| PGDB
+    AGW -->|INSERT artifacts via Prisma| PGDB
     BE -->|OpenAI chat| OAI_API
     WKR -->|agent tasks + embeddings| OAI_API
+    AGW -->|LangGraph agent tasks + embeddings| OAI_API
+    AGW -->|web search| TAV_API
     WKR -->|web search| TAV_API
 ```
 

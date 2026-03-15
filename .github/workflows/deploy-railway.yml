@@ -29,6 +29,18 @@ jobs:
           railway_token: ${{ secrets.RAILWAY_TOKEN }}
           service: worker
 
+  deploy-agent-worker:
+    name: Deploy Agent Worker
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: agent-worker
+
   deploy-frontend:
     name: Deploy Frontend
     runs-on: ubuntu-latest
