@@ -69,8 +69,12 @@ def run_worker() -> None:
             time.sleep(5)
 
 
-def dispatch_phase_job(phase_id: uuid.UUID, use_v2: bool = False, agent_names: list[str] | None = None) -> None:
-    """Dispatch a phase execution job to the appropriate Redis queue."""
+def dispatch_phase_job(phase_id: uuid.UUID, use_v2: bool = True, agent_names: list[str] | None = None) -> None:
+    """Dispatch a phase execution job to the v2 agent-worker queue.
+
+    The use_v2 flag is kept for backward compatibility but defaults to True.
+    All new projects use the TypeScript/LangGraph agent-worker exclusively.
+    """
     r = get_redis_client()
     payload: dict = {"phase_id": str(phase_id)}
     if agent_names:
