@@ -5,6 +5,25 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Required GitHub Secrets:
+#   RAILWAY_TOKEN — Railway API token (from Railway Dashboard > Account > Tokens)
+#
+# Required Railway Environment Variables (set per service in Railway Dashboard):
+#   Backend + Worker:
+#     DATABASE_URL        — Supabase asyncpg URL (port 6543)
+#     DATABASE_URL_SYNC   — Supabase psycopg2 URL (port 5432) for Alembic
+#     REDIS_URL           — Railway Redis internal URL
+#     SECRET_KEY          — JWT signing key
+#     OPENAI_API_KEY      — GPT-4o + embeddings
+#     CORS_ORIGINS        — Frontend domain (e.g. https://your-app.up.railway.app)
+#     FRONTEND_URL        — Same as above
+#   Agent-Worker:
+#     DATABASE_URL        — Supabase Prisma URL (port 6543, ?pgbouncer=true)
+#     REDIS_URL           — Railway Redis internal URL
+#     OPENAI_API_KEY      — GPT-4o + embeddings
+#   Frontend:
+#     NEXT_PUBLIC_API_URL — Backend URL (e.g. https://your-backend.up.railway.app)
+
 jobs:
   deploy-backend:
     name: Deploy Backend

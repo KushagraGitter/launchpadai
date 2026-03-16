@@ -1,4 +1,5 @@
 import ssl
+from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -15,6 +16,12 @@ if "supabase" in settings.DATABASE_URL:
     _ssl_ctx.check_hostname = False
     _ssl_ctx.verify_mode = ssl.CERT_NONE
     _connect_args["ssl"] = _ssl_ctx
+
+    # asyncpg/SQLAlchemy mis-parse usernames containing dots (e.g. postgres.project-ref).
+    # Pass the full username via server_settings so asyncpg sends it correctly to the Supabase pooler.
+    parsed = urlparse(_db_url)
+    if parsed.username and "." in parsed.username:
+        _connect_args["server_settings"] = {"user": parsed.username}
 
 engine = create_async_engine(
     _db_url,

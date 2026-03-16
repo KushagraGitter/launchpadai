@@ -10,8 +10,11 @@ from app.core.database import engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from app.agents.base import configure_langsmith
-    configure_langsmith()
+    try:
+        from app.agents.base import configure_langsmith
+        configure_langsmith()
+    except ImportError:
+        pass  # crewai not installed — v1 agents unavailable, v2 worker handles phases
     yield
     await engine.dispose()
 

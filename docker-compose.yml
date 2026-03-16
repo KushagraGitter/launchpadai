@@ -1,20 +1,5 @@
 services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: ideaos
-      POSTGRES_PASSWORD: ideaos_dev_pw
-      POSTGRES_DB: ideaos
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ideaos"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
+  # Local Redis for job queue and real-time pub/sub
   redis:
     image: redis:7-alpine
     ports:
@@ -27,22 +12,35 @@ services:
       timeout: 3s
       retries: 5
 
+  # Optional: local PostgreSQL for offline dev (comment out to use Supabase only)
+  # postgres:
+  #   image: pgvector/pgvector:pg16
+  #   environment:
+  #     POSTGRES_USER: ideaos
+  #     POSTGRES_PASSWORD: ideaos_dev_pw
+  #     POSTGRES_DB: ideaos
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ideaos"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 5
+
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://ideaos:ideaos_dev_pw@postgres:5432/ideaos
-      DATABASE_URL_SYNC: postgresql://ideaos:ideaos_dev_pw@postgres:5432/ideaos
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: http://localhost:3000,http://frontend:3000
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     command: >
@@ -56,17 +54,13 @@ services:
 
   worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://ideaos:ideaos_dev_pw@postgres:5432/ideaos
-      DATABASE_URL_SYNC: postgresql://ideaos:ideaos_dev_pw@postgres:5432/ideaos
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       backend:
@@ -80,11 +74,8 @@ services:
     env_file:
       - ./agent-worker/.env
     environment:
-      DATABASE_URL: postgresql://ideaos:ideaos_dev_pw@postgres:5432/ideaos
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       backend:
@@ -92,8 +83,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
@@ -103,5 +94,4 @@ services:
         condition: service_healthy
 
 volumes:
-  pgdata:
   redisdata:

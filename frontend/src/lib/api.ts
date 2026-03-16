@@ -390,7 +390,13 @@ export const chatApi = {
     token: string,
     projectId: string,
     message: string
-  ): AsyncGenerator<{ type: string; content?: string; action?: string; phase?: string }> {
+  ): AsyncGenerator<{
+    type: string;
+    content?: string;
+    action?: string;
+    phase?: string;
+    feedback_count?: number;
+  }> {
     let currentToken = sessionStorage.getItem("access_token") || token;
 
     let response: Response;

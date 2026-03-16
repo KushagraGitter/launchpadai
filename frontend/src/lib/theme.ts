@@ -27,7 +27,7 @@ function applyTheme(resolved: "dark" | "light") {
 }
 
 function loadSaved(): Theme {
-  if (typeof localStorage === "undefined") return "dark";
+  if (typeof localStorage === "undefined" || typeof localStorage.getItem !== "function") return "dark";
   return (localStorage.getItem("launchpadai-theme") as Theme) || "dark";
 }
 
@@ -52,7 +52,9 @@ export const useTheme = create<ThemeState>((set) => {
     resolved: res,
     setTheme: (theme: Theme) => {
       const res = resolve(theme);
-      localStorage.setItem("launchpadai-theme", theme);
+      if (typeof localStorage !== "undefined" && typeof localStorage.setItem === "function") {
+        localStorage.setItem("launchpadai-theme", theme);
+      }
       applyTheme(res);
       set({ theme, resolved: res });
     },
