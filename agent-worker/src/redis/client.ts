@@ -33,6 +33,22 @@ export function getBlockingRedis(): Redis {
   return _subRedis
 }
 
+/**
+ * Create a new dedicated Redis connection for a BLPOP consumer slot.
+ * Each concurrent worker slot must own its own connection — BLPOP is blocking
+ * and cannot be safely shared across concurrent callers.
+ */
+export function createBlockingRedis(): Redis {
+  const client = new Redis(config.REDIS_URL, {
+    lazyConnect: false,
+    enableReadyCheck: true,
+    maxRetriesPerRequest: null,
+    retryStrategy: (times) => Math.min(times * 200, 3000),
+  })
+  client.on("error", (err) => logger.error("Blocking Redis error", { error: err.message }))
+  return client
+}
+
 export async function disconnectRedis(): Promise<void> {
   if (_redis) {
     await _redis.quit()

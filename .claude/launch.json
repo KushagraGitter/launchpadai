@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd frontend && npm install --legacy-peer-deps && npm run dev"],
+      "port": 3000
+    },
+    {
+      "name": "Backend API",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd backend && venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"],
+      "port": 8000
+    },
+    {
+      "name": "Agent Worker",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd agent-worker && npm install && npm run dev"],
+      "port": null
+    }
+  ]
+}

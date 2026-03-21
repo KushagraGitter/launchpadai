@@ -44,7 +44,7 @@ services:
       redis:
         condition: service_healthy
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS:-4}"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 10s
@@ -75,6 +75,7 @@ services:
       - ./agent-worker/.env
     environment:
       REDIS_URL: redis://redis:6379/0
+      CONCURRENCY: "${CONCURRENCY:-3}"
     depends_on:
       redis:
         condition: service_healthy

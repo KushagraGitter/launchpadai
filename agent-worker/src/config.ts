@@ -10,6 +10,7 @@ const configSchema = z.object({
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
   QUEUE_NAME: z.string().default("ideaos:phase_jobs_v2"),
   BLPOP_TIMEOUT: z.coerce.number().int().positive().default(5),
+  CONCURRENCY: z.coerce.number().int().positive().default(3),
   LANGSMITH_API_KEY: z.string().optional(),
   LANGSMITH_PROJECT: z.string().default("LaunchPadAI"),
   LANGSMITH_TRACING: z
