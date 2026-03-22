@@ -14,6 +14,12 @@
       "port": 8000
     },
     {
+      "name": "Redis",
+      "runtimeExecutable": "redis-server",
+      "runtimeArgs": ["--port", "6379"],
+      "port": 6379
+    },
+    {
       "name": "Agent Worker",
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "cd agent-worker && npm install && npm run dev"],
