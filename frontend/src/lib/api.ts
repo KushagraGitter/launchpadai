@@ -230,6 +230,25 @@ export const api = {
       }),
   },
 
+  keys: {
+    list: (token: string) =>
+      apiFetch<APIKeyListResponse>("/api/keys", { token }),
+    create: (token: string, name: string) =>
+      apiFetch<APIKeyCreateResponse>("/api/keys", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+        token,
+      }),
+    revoke: (token: string, keyId: string) =>
+      apiFetch<void>(`/api/keys/${keyId}`, { method: "DELETE", token }),
+    rename: (token: string, keyId: string, name: string) =>
+      apiFetch<APIKeyItem>(`/api/keys/${keyId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+        token,
+      }),
+  },
+
   subscriptions: {
     current: (token: string) =>
       apiFetch<SubscriptionInfo>("/api/subscriptions/current", { token }),
@@ -260,9 +279,35 @@ export interface UserInfo {
   email: string;
   name: string;
   email_verified: boolean;
-  plan: "free" | "pro" | "team";
+  plan: "free" | "pro" | "developer" | "team";
   project_limit: number;
   project_count: number;
+  created_at: string;
+}
+
+export interface APIKeyItem {
+  id: string;
+  name: string;
+  key_prefix: string;
+  rate_limit_rpm: number;
+  is_active: boolean;
+  last_used_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+export interface APIKeyListResponse {
+  keys: APIKeyItem[];
+  total: number;
+  plan_limit: number;
+}
+
+export interface APIKeyCreateResponse {
+  id: string;
+  name: string;
+  key: string; // Raw key — shown ONCE
+  key_prefix: string;
+  rate_limit_rpm: number;
   created_at: string;
 }
 

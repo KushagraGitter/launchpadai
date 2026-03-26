@@ -14,6 +14,7 @@ from app.core.database import Base
 class PlanType(str, enum.Enum):
     FREE = "free"
     PRO = "pro"
+    DEVELOPER = "developer"
     TEAM = "team"
 
 
@@ -27,7 +28,24 @@ class SubscriptionStatus(str, enum.Enum):
 PLAN_LIMITS = {
     PlanType.FREE: 1,
     PlanType.PRO: 5,
-    PlanType.TEAM: -1,  # unlimited
+    PlanType.DEVELOPER: -1,  # unlimited
+    PlanType.TEAM: -1,       # unlimited
+}
+
+# Max API keys per plan
+API_KEY_LIMITS: dict[PlanType, int] = {
+    PlanType.FREE: 0,
+    PlanType.PRO: 0,
+    PlanType.DEVELOPER: 5,
+    PlanType.TEAM: 20,
+}
+
+# Requests per minute per plan (0 = no API access)
+RATE_LIMITS: dict[PlanType, int] = {
+    PlanType.FREE: 0,
+    PlanType.PRO: 0,
+    PlanType.DEVELOPER: 500,
+    PlanType.TEAM: 1000,
 }
 
 

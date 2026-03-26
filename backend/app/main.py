@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, chat, projects, phases, websocket, export, subscriptions, webhooks, scores
+from app.api.routes import auth, chat, projects, phases, websocket, export, subscriptions, webhooks, scores, api_keys, developer_api
 from app.core.config import settings
 from app.core.database import engine
 
@@ -43,6 +43,8 @@ app.include_router(export.router, prefix="/api/projects", tags=["export"])
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["subscriptions"])
 app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(scores.router, prefix="/api/projects", tags=["scores"])
+app.include_router(api_keys.router, prefix="/api/keys", tags=["api-keys"])
+app.include_router(developer_api.router, prefix="/api/v1", tags=["developer-api"])
 
 
 @app.get("/api/health")
