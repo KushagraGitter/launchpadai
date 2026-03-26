@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
-import { api, SubscriptionInfo, PaymentRecord } from "@/lib/api";
+import { api, SubscriptionInfo, PaymentRecord, APIKeyItem, APIKeyCreateResponse } from "@/lib/api";
 import {
   Crown,
   Zap,
@@ -13,6 +13,14 @@ import {
   Users,
   FolderOpen,
   Rocket,
+  Key,
+  Copy,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
+  Code2,
+  Terminal,
 } from "lucide-react";
 
 declare global {
@@ -40,6 +48,21 @@ const PLANS = [
     popular: true,
   },
   {
+    id: "developer",
+    name: "Developer",
+    price: 29,
+    description: "For API & MCP access",
+    features: [
+      "Unlimited projects",
+      "All 4 AI phases",
+      "REST API access",
+      "MCP server integration",
+      "5 API keys, 500 RPM",
+      "Export artifacts",
+    ],
+    icon: Code2,
+  },
+  {
     id: "team",
     name: "Team",
     price: 49,
@@ -48,6 +71,7 @@ const PLANS = [
       "Unlimited projects",
       "All 4 AI phases",
       "Multi-user collaboration",
+      "20 API keys, 1000 RPM",
       "Priority support",
       "Export artifacts",
     ],
@@ -63,6 +87,70 @@ export default function SettingsPage() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // API Key state
+  const [apiKeys, setApiKeys] = useState<APIKeyItem[]>([]);
+  const [apiKeyLimit, setApiKeyLimit] = useState(0);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<APIKeyCreateResponse | null>(null);
+  const [showNewKey, setShowNewKey] = useState(false);
+  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+
+  const loadApiKeys = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const data = await api.keys.list(token);
+      setApiKeys(data.keys);
+      setApiKeyLimit(data.plan_limit);
+    } catch {
+      // Plan doesn't support API keys — that's fine
+      setApiKeys([]);
+      setApiKeyLimit(0);
+    }
+  }, [getToken]);
+
+  async function handleCreateKey() {
+    const token = getToken();
+    if (!token || !newKeyName.trim()) return;
+    setCreatingKey(true);
+    try {
+      const created = await api.keys.create(token, newKeyName.trim());
+      setNewlyCreatedKey(created);
+      setShowNewKey(true);
+      setNewKeyName("");
+      loadApiKeys();
+    } catch (err: unknown) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail || "Failed to create API key";
+      setMessage({ type: "error", text: detail });
+    } finally {
+      setCreatingKey(false);
+    }
+  }
+
+  async function handleRevokeKey(keyId: string) {
+    const token = getToken();
+    if (!token) return;
+    if (!window.confirm("Revoke this API key? This cannot be undone.")) return;
+    setRevokingKeyId(keyId);
+    try {
+      await api.keys.revoke(token, keyId);
+      loadApiKeys();
+      setMessage({ type: "success", text: "API key revoked." });
+    } catch {
+      setMessage({ type: "error", text: "Failed to revoke key." });
+    } finally {
+      setRevokingKeyId(null);
+    }
+  }
+
+  function copyToClipboard(text: string, id: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedKeyId(id);
+    setTimeout(() => setCopiedKeyId(null), 2000);
+  }
 
   const loadData = useCallback(async () => {
     const token = getToken();
@@ -83,8 +171,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadData();
+    loadApiKeys();
     loadRazorpayScript();
-  }, [loadData]);
+  }, [loadData, loadApiKeys]);
 
   function loadRazorpayScript() {
     if (document.getElementById("razorpay-script")) return;
@@ -246,7 +335,7 @@ export default function SettingsPage() {
       {/* Plans */}
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-4">Available Plans</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((plan) => {
             const isCurrent = currentPlan === plan.id;
             const PlanIcon = plan.icon;
@@ -361,6 +450,173 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* API Keys Section */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              <Key className="inline h-5 w-5 mr-2 text-muted-foreground" />
+              API Keys
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use API keys to access LaunchPadAI programmatically via REST API or MCP server
+            </p>
+          </div>
+          {apiKeyLimit > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {apiKeys.filter(k => k.is_active).length} / {apiKeyLimit} keys
+            </span>
+          )}
+        </div>
+
+        {apiKeyLimit === 0 ? (
+          <div className="rounded-xl border border-border/50 bg-secondary/30 p-6 text-center">
+            <Terminal className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground mb-1">
+              API access requires a <strong className="text-foreground">Developer</strong> or <strong className="text-foreground">Team</strong> plan
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Get REST API + MCP server integration for AI editors like Claude Desktop, Cursor, and VS Code
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Newly created key banner */}
+            {newlyCreatedKey && (
+              <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="h-4 w-4 text-emerald-400" />
+                  <span className="text-sm font-medium text-emerald-300">API key created — copy it now!</span>
+                </div>
+                <p className="text-xs text-emerald-400/70 mb-3">This key will only be shown once. Store it somewhere safe.</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded-lg bg-black/30 px-3 py-2 text-sm font-mono text-emerald-300 overflow-x-auto">
+                    {showNewKey ? newlyCreatedKey.key : "••••••••••••••••••••••••••••••••"}
+                  </code>
+                  <button
+                    onClick={() => setShowNewKey(!showNewKey)}
+                    className="rounded-lg p-2 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                    title={showNewKey ? "Hide key" : "Show key"}
+                  >
+                    {showNewKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(newlyCreatedKey.key, "new")}
+                    className="rounded-lg p-2 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                    title="Copy key"
+                  >
+                    {copiedKeyId === "new" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+                <button
+                  onClick={() => setNewlyCreatedKey(null)}
+                  className="mt-3 text-xs text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                >
+                  I&apos;ve saved it — dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Create new key */}
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="text"
+                placeholder="Key name (e.g. 'Cursor MCP', 'CI Pipeline')"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreateKey()}
+                className="flex-1 rounded-xl border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30"
+              />
+              <button
+                onClick={handleCreateKey}
+                disabled={creatingKey || !newKeyName.trim() || apiKeys.filter(k => k.is_active).length >= apiKeyLimit}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-purple-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-emerald-500 hover:to-purple-500 transition-colors disabled:opacity-50"
+              >
+                {creatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Create
+              </button>
+            </div>
+
+            {/* Key list */}
+            {apiKeys.length > 0 ? (
+              <div className="space-y-2">
+                {apiKeys.map((k) => (
+                  <div
+                    key={k.id}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
+                      k.is_active
+                        ? "border-border bg-secondary/30"
+                        : "border-border/30 bg-secondary/10 opacity-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Key className={`h-4 w-4 shrink-0 ${k.is_active ? "text-emerald-400" : "text-muted-foreground"}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{k.name}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <code className="text-xs text-muted-foreground font-mono">{k.key_prefix}</code>
+                          <span className="text-xs text-muted-foreground">
+                            {k.rate_limit_rpm} RPM
+                          </span>
+                          {k.last_used_at && (
+                            <span className="text-xs text-muted-foreground">
+                              Last used {new Date(k.last_used_at).toLocaleDateString()}
+                            </span>
+                          )}
+                          {!k.is_active && (
+                            <span className="text-xs text-red-400 font-medium">Revoked</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {k.is_active && (
+                      <button
+                        onClick={() => handleRevokeKey(k.id)}
+                        disabled={revokingKeyId === k.id}
+                        className="rounded-lg p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        title="Revoke key"
+                      >
+                        {revokingKeyId === k.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No API keys yet. Create one to get started.
+              </p>
+            )}
+
+            {/* MCP Server setup hint */}
+            <div className="mt-4 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Terminal className="h-4 w-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-300">MCP Server</span>
+              </div>
+              <p className="text-xs text-purple-300/70 mb-2">
+                Use your API key with the LaunchPadAI MCP server in Claude Desktop, Cursor, or any MCP client:
+              </p>
+              <code className="block rounded-lg bg-black/30 px-3 py-2 text-xs font-mono text-purple-300 overflow-x-auto whitespace-pre">
+{`{
+  "mcpServers": {
+    "launchpadai": {
+      "command": "npx",
+      "args": ["launchpadai-mcp"],
+      "env": { "LAUNCHPADAI_API_KEY": "your_key_here" }
+    }
+  }
+}`}
+              </code>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Account Info */}
       <div className="card">

@@ -47,6 +47,7 @@ const PHASE_AGENT_LABELS: Record<string, string[]> = {
     "Technical Feasibility",
     "Persona Research",
     "Validation Synthesis",
+    "Benchmark Scorer",
   ],
   prd: [
     "Requirements Analyst",
