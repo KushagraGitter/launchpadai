@@ -30,12 +30,13 @@ export function formatRelative(dateString: string): string {
 
 export const PHASE_LABELS: Record<string, string> = {
   validation: "Idea Validation",
+  landing_page: "Landing Page",
   prd: "PRD Generation",
   coding_context: "Coding Context",
   gtm: "Go-to-Market",
 };
 
-export const PHASE_ORDER = ["validation", "prd", "coding_context", "gtm"] as const;
+export const PHASE_ORDER = ["validation", "landing_page", "prd", "coding_context", "gtm"] as const;
 
 export const STATUS_COLORS: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",

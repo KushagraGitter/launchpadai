@@ -1,17 +1,12 @@
-"""Background worker for executing phase crews asynchronously.
+"""Background worker job dispatcher.
 
-Supports concurrent job processing via CONCURRENCY env var (default: 3).
-Each slot runs in its own thread with its own Redis client and asyncio event loop.
+All phase execution is handled by the TypeScript/LangGraph agent-worker (v2).
+This module provides dispatch_phase_job() to push jobs onto the Redis queue,
+and a legacy run_worker() entry point (no longer used in production).
 """
 
-import asyncio
 import json
-import os
-import signal
-import sys
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Event
 
 import redis
 
@@ -19,88 +14,10 @@ from app.core.config import settings
 
 QUEUE_NAME = "ideaos:phase_jobs"
 QUEUE_NAME_V2 = "ideaos:phase_jobs_v2"
-CONCURRENCY = int(os.environ.get("CONCURRENCY", "3"))
-
-_shutdown_event = Event()
 
 
 def get_redis_client():
     return redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
-
-
-async def process_job(phase_id_str: str, agent_names: list[str] | None = None) -> None:
-    """Process a single phase execution job with a fresh DB session."""
-    from app.core.database import create_async_session
-    from app.services.phase_runner import run_phase, run_phase_targeted
-
-    phase_id = uuid.UUID(phase_id_str)
-    session_factory = create_async_session()
-    async with session_factory() as db:
-        try:
-            if agent_names:
-                await run_phase_targeted(db, phase_id, agent_names)
-            else:
-                await run_phase(db, phase_id)
-            await db.commit()
-        except Exception as e:
-            await db.rollback()
-            print(f"Phase {phase_id} failed: {e}", file=sys.stderr)
-
-
-def _run_slot(slot_id: int) -> None:
-    """A single worker slot — runs in its own thread with its own Redis client."""
-    r = get_redis_client()
-    print(f"[slot-{slot_id}] Worker slot started, queue={QUEUE_NAME}", flush=True)
-
-    while not _shutdown_event.is_set():
-        try:
-            result = r.brpop(QUEUE_NAME, timeout=5)
-            if result is None:
-                continue
-
-            _, job_data = result
-            job = json.loads(job_data)
-            phase_id = job.get("phase_id")
-            agent_names = job.get("agent_names")
-
-            if not phase_id:
-                continue
-
-            print(f"[slot-{slot_id}] Processing phase: {phase_id} agents={agent_names}", flush=True)
-            asyncio.run(process_job(phase_id, agent_names))
-            print(f"[slot-{slot_id}] Completed phase: {phase_id}", flush=True)
-
-        except KeyboardInterrupt:
-            break
-        except Exception as e:
-            print(f"[slot-{slot_id}] Error: {e}", file=sys.stderr, flush=True)
-            import time
-            time.sleep(5)
-
-    print(f"[slot-{slot_id}] Slot exiting", flush=True)
-
-
-def run_worker() -> None:
-    """Run the background worker with CONCURRENCY parallel slots."""
-    from app.agents.base import configure_langsmith
-    configure_langsmith()
-
-    print(f"LaunchPadAI Worker started. Queue={QUEUE_NAME} concurrency={CONCURRENCY}", flush=True)
-
-    def handle_signal(sig, frame):
-        print("Worker shutting down gracefully…", flush=True)
-        _shutdown_event.set()
-
-    signal.signal(signal.SIGTERM, handle_signal)
-    signal.signal(signal.SIGINT, handle_signal)
-
-    with ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
-        futures = [executor.submit(_run_slot, i + 1) for i in range(CONCURRENCY)]
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"Slot raised exception: {e}", file=sys.stderr, flush=True)
 
 
 def dispatch_phase_job(phase_id: uuid.UUID, use_v2: bool = True, agent_names: list[str] | None = None) -> None:
@@ -116,7 +33,3 @@ def dispatch_phase_job(phase_id: uuid.UUID, use_v2: bool = True, agent_names: li
     job = json.dumps(payload)
     queue = QUEUE_NAME_V2 if use_v2 else QUEUE_NAME
     r.lpush(queue, job)
-
-
-if __name__ == "__main__":
-    run_worker()

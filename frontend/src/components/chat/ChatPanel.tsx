@@ -101,11 +101,12 @@ interface ChatPanelProps {
   onPhaseStarted?: (phase: string) => void;
 }
 
-const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
 
 const PHASE_LABELS: Record<string, string> = {
   discovery: "Discovery Session",
   validation: "Idea Validation",
+  landing_page: "Landing Page",
   prd: "PRD Generation",
   coding_context: "Coding Context",
   gtm: "Go-to-Market",
@@ -975,6 +976,7 @@ function ResearchIndicator({ query }: { query: string }) {
 const PHASE_LABELS_ALL: Record<string, string> = {
   discovery: "Discovery Session",
   validation: "Idea Validation",
+  landing_page: "Landing Page",
   prd: "PRD Generation",
   coding_context: "Coding Context",
   gtm: "Go-to-Market",

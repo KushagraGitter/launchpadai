@@ -20,6 +20,7 @@ import { buildValidationGraph } from "../graphs/validation"
 import { buildPrdGraph } from "../graphs/prd"
 import { buildCodingContextGraph } from "../graphs/coding-context"
 import { buildGtmGraph } from "../graphs/gtm"
+import { buildLandingPageGraph } from "../graphs/landing-page"
 import { storeArtifacts, createAgentRunStubs } from "../artifacts/store"
 import * as publisher from "../redis/publisher"
 import { logger } from "../logger"
@@ -29,6 +30,7 @@ import type { PhaseStateType } from "../graphs/state"
 const PRIOR_PHASES: Record<string, string[]> = {
   discovery: [],
   validation: ["discovery"],
+  landing_page: ["discovery", "validation"],
   prd: ["discovery", "validation"],
   coding_context: ["discovery", "validation", "prd"],
   gtm: ["discovery", "validation", "prd", "coding_context"],
@@ -48,6 +50,10 @@ const PHASE_AGENT_LABELS: Record<string, string[]> = {
     "Persona Research",
     "Validation Synthesis",
     "Benchmark Scorer",
+  ],
+  landing_page: [
+    "Landing Page Copywriter",
+    "Landing Page Builder",
   ],
   prd: [
     "Requirements Analyst",
@@ -84,6 +90,8 @@ function getGraph(phaseType: string) {
       return buildCodingContextGraph()
     case "gtm":
       return buildGtmGraph()
+    case "landing_page":
+      return buildLandingPageGraph()
     default:
       throw new Error(`Unknown phase type: ${phaseType}`)
   }
@@ -189,6 +197,36 @@ export async function runPhase(phaseId: string): Promise<void> {
 
     // 7. Store artifacts + embeddings
     await storeArtifacts(phaseId, project.id, phaseType, finalState.nodeResults)
+
+    // 7b. Special: Landing Page — persist HTML to landing_pages table
+    if (phaseType === "landing_page" && finalState.nodeResults.page_builder) {
+      const pageData = finalState.nodeResults.page_builder.contentJson as Record<string, string>
+      const html = pageData.html || finalState.nodeResults.page_builder.content || ""
+      const slug = (pageData.slug || project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))
+        .slice(0, 100)
+
+      if (html) {
+        // Upsert landing page
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO landing_pages (id, project_id, slug, html, page_title, meta_description, is_published, view_count, template_style, created_at, updated_at)
+           VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5, true, 0, $6, NOW(), NOW())
+           ON CONFLICT (project_id) DO UPDATE SET
+             slug = EXCLUDED.slug,
+             html = EXCLUDED.html,
+             page_title = EXCLUDED.page_title,
+             meta_description = EXCLUDED.meta_description,
+             template_style = EXCLUDED.template_style,
+             updated_at = NOW()`,
+          project.id,
+          slug,
+          html,
+          pageData.page_title || project.name,
+          pageData.meta_description || project.rawIdea.slice(0, 500),
+          pageData.template_style || "modern"
+        )
+        logger.info("Landing page stored", { projectId: project.id, slug })
+      }
+    }
 
     // 8. Mark phase as in_review (user must accept before next phase unlocks)
     await prisma.phase.update({

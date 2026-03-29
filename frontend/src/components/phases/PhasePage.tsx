@@ -31,9 +31,14 @@ import {
   MessageSquare,
   Eye,
   SendHorizontal,
+  Github,
+  Globe,
+  ExternalLink,
+  BarChart3,
+  Mail,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { api, ApiError, Artifact, Phase, PhaseFeedback, FeedbackType } from "@/lib/api";
+import { api, ApiError, Artifact, Phase, PhaseFeedback, FeedbackType, githubApi, GitHubStatus, landingPageApi, LandingPageInfo, LandingPageLead } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/lib/toast";
 import type { AgentProgress } from "@/lib/useAgentProgress";
@@ -97,6 +102,18 @@ const PHASE_META: Record<
     ],
     estimatedTime: "~2 min",
   },
+  landing_page: {
+    label: "Landing Page",
+    color: "#ec4899",
+    icon: Globe,
+    description:
+      "Auto-generate a high-converting SaaS landing page to capture real customer interest before you build. Validates demand with waitlist signups.",
+    agents: [
+      { name: "Landing Page Copywriter", task: "Conversion-optimized copy, headlines, and CTAs" },
+      { name: "Landing Page Builder", task: "Complete Tailwind HTML page with email capture" },
+    ],
+    estimatedTime: "~1 min",
+  },
   prd: {
     label: "PRD Generation",
     color: "#3b82f6",
@@ -144,7 +161,7 @@ const PHASE_META: Record<
   },
 };
 
-const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
 
 function stripCodeFences(raw: string): string {
   let s = raw.trim();
@@ -178,6 +195,20 @@ export default function PhasePage({
   const [accepting, setAccepting] = useState(false);
   const [refining, setRefining] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, PhaseFeedback[]>>({});
+
+  // GitHub export state
+  const [ghExporting, setGhExporting] = useState(false);
+  const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
+  const [ghShowModal, setGhShowModal] = useState(false);
+  const [ghRepo, setGhRepo] = useState("");
+  const [ghRepos, setGhRepos] = useState<{ full_name: string; name: string; private: boolean }[]>([]);
+
+  // Landing page state
+  const [lpInfo, setLpInfo] = useState<LandingPageInfo | null>(null);
+  const [lpLeads, setLpLeads] = useState<LandingPageLead[]>([]);
+  const [lpLoading, setLpLoading] = useState(false);
+  const [lpToggling, setLpToggling] = useState(false);
+  const [lpShowPreview, setLpShowPreview] = useState(false);
 
   const statusPriority = (s: string) => {
     if (s === "accepted") return 0;
@@ -285,6 +316,45 @@ export default function PhasePage({
     }
   }, [agentProgress.isRunning, agentProgress.completedAgents.length, agentProgress.phaseType, phaseType, fetchArtifacts, fetchFeedback]);
 
+  // Landing page data fetching
+  const fetchLandingPage = useCallback(async () => {
+    if (phaseType !== "landing_page" || !showArtifacts) return;
+    const token = getToken();
+    if (!token) return;
+    setLpLoading(true);
+    try {
+      const [info, leads] = await Promise.all([
+        landingPageApi.getInfo(token, projectId),
+        landingPageApi.getLeads(token, projectId),
+      ]);
+      setLpInfo(info);
+      setLpLeads(leads);
+    } catch {
+      // Landing page may not exist yet
+    } finally {
+      setLpLoading(false);
+    }
+  }, [phaseType, showArtifacts, projectId, getToken]);
+
+  useEffect(() => {
+    fetchLandingPage();
+  }, [fetchLandingPage]);
+
+  async function handleTogglePublish() {
+    const token = getToken();
+    if (!token || !lpInfo) return;
+    setLpToggling(true);
+    try {
+      const result = await landingPageApi.togglePublish(token, projectId, !lpInfo.is_published);
+      setLpInfo((prev) => prev ? { ...prev, is_published: result.is_published } : null);
+      toast.add("success", result.is_published ? "Landing page published!" : "Landing page unpublished.");
+    } catch {
+      toast.add("error", "Failed to update publish status.");
+    } finally {
+      setLpToggling(false);
+    }
+  }
+
   async function handleStart() {
     const token = getToken();
     if (!token) return;
@@ -348,6 +418,46 @@ export default function PhasePage({
       await api.phases.exportZip(token, projectId, phaseType);
     } catch {
       toast.add("error", "Download failed.");
+    }
+  }
+
+  async function handleOpenGitHubExport() {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const status = await githubApi.status(token);
+      setGhStatus(status);
+      if (!status.connected) {
+        toast.add("error", "Connect GitHub in Settings first.");
+        return;
+      }
+      const repos = await githubApi.repos(token);
+      setGhRepos(repos);
+      setGhRepo(status.default_repo || (repos.length > 0 ? repos[0].full_name : ""));
+      setGhShowModal(true);
+    } catch {
+      toast.add("error", "Failed to load GitHub status. Connect in Settings first.");
+    }
+  }
+
+  async function handleExportToGitHub() {
+    const token = getToken();
+    if (!token || !ghRepo) return;
+    setGhExporting(true);
+    try {
+      const result = await githubApi.exportToGitHub(token, projectId, ghRepo);
+      setGhShowModal(false);
+      if (result.issues_created > 0) {
+        toast.add("success", `${result.issues_created} issues created in ${result.repo}!`);
+      }
+      if (result.errors.length > 0) {
+        toast.add("error", `${result.errors.length} task(s) failed to export.`);
+      }
+    } catch (err: unknown) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail || "Export failed.";
+      toast.add("error", detail);
+    } finally {
+      setGhExporting(false);
     }
   }
 
@@ -484,8 +594,71 @@ export default function PhasePage({
                 Export
               </button>
             )}
+            {(isAccepted || isCompleted) && phaseType === "coding_context" && (
+              <button onClick={handleOpenGitHubExport} disabled={ghExporting} className="inline-flex items-center gap-1.5 rounded-lg border border-[#24292e] bg-[#24292e] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2f363d] transition-colors disabled:opacity-50">
+                {ghExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Github className="h-3.5 w-3.5" />}
+                Export to GitHub
+              </button>
+            )}
           </div>
         </div>
+
+        {/* GitHub Export Modal */}
+        {ghShowModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#24292e] text-white">
+                  <Github className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Export Tasks to GitHub</h3>
+                  <p className="text-xs text-muted-foreground">Create issues with labels &amp; milestones</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-xs text-muted-foreground mb-1.5 block">Select repository</label>
+                <select
+                  value={ghRepo}
+                  onChange={(e) => setGhRepo(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 appearance-none cursor-pointer"
+                >
+                  {ghRepos.map((r) => (
+                    <option key={r.full_name} value={r.full_name}>
+                      {r.full_name} {r.private ? "(private)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-xl border border-border/50 bg-secondary/20 p-3 mb-4">
+                <p className="text-xs text-muted-foreground">
+                  This will parse your task decomposition and create individual GitHub issues for each task,
+                  organized under a <strong className="text-foreground">LaunchPadAI milestone</strong> with
+                  category labels (backend, frontend, infrastructure, etc).
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 justify-end">
+                <button
+                  onClick={() => setGhShowModal(false)}
+                  className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExportToGitHub}
+                  disabled={ghExporting || !ghRepo}
+                  className="flex items-center gap-2 rounded-xl bg-[#24292e] hover:bg-[#2f363d] px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                >
+                  {ghExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Github className="h-4 w-4" />}
+                  {ghExporting ? "Creating issues..." : "Export"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stuck warning */}
         {isRunning && isStuck && (
@@ -645,6 +818,164 @@ export default function PhasePage({
                     onSubmitFeedback={isInReview ? handleSubmitFeedback : undefined}
                   />
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Landing Page Dashboard */}
+        {phaseType === "landing_page" && showArtifacts && (
+          <div className="space-y-4">
+            {lpLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-pink-500" />
+              </div>
+            ) : lpInfo ? (
+              <>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10">
+                        <Eye className="h-3.5 w-3.5 text-blue-400" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Page Views</span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{lpInfo.view_count.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10">
+                        <Mail className="h-3.5 w-3.5 text-emerald-400" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Leads Captured</span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{lpInfo.lead_count}</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-card p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/10">
+                        <BarChart3 className="h-3.5 w-3.5 text-purple-400" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Conversion Rate</span>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground">{lpInfo.conversion_rate.toFixed(1)}%</p>
+                  </div>
+                </div>
+
+                {/* Controls */}
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-500/10">
+                        <Globe className="h-4 w-4 text-pink-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">{lpInfo.page_title}</h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {lpInfo.is_published ? (
+                            <span className="text-emerald-400">Published</span>
+                          ) : (
+                            <span className="text-amber-400">Unpublished</span>
+                          )}
+                          {" \u00b7 "}{lpInfo.slug}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setLpShowPreview(!lpShowPreview)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        {lpShowPreview ? "Hide Preview" : "Preview"}
+                      </button>
+                      {lpInfo.is_published && (
+                        <a
+                          href={lpInfo.public_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open
+                        </a>
+                      )}
+                      <button
+                        onClick={handleTogglePublish}
+                        disabled={lpToggling}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                          lpInfo.is_published
+                            ? "border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                            : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                        }`}
+                      >
+                        {lpToggling && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {lpInfo.is_published ? "Unpublish" : "Publish"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview iframe */}
+                {lpShowPreview && (
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="bg-card px-4 py-2 border-b border-border flex items-center gap-2">
+                      <div className="flex gap-1.5">
+                        <div className="h-2.5 w-2.5 rounded-full bg-red-500/60" />
+                        <div className="h-2.5 w-2.5 rounded-full bg-amber-500/60" />
+                        <div className="h-2.5 w-2.5 rounded-full bg-green-500/60" />
+                      </div>
+                      <div className="flex-1 text-center">
+                        <span className="text-[10px] text-muted-foreground bg-secondary/60 rounded-md px-3 py-0.5">
+                          /landing/{lpInfo.slug}
+                        </span>
+                      </div>
+                    </div>
+                    <iframe
+                      src={lpInfo.public_url}
+                      className="w-full h-[600px] bg-white"
+                      title="Landing Page Preview"
+                    />
+                  </div>
+                )}
+
+                {/* Leads Table */}
+                {lpLeads.length > 0 && (
+                  <div className="rounded-xl border border-border bg-card overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground">Captured Leads ({lpLeads.length})</h3>
+                      <span className="text-[10px] text-muted-foreground">Latest first</span>
+                    </div>
+                    <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                      {lpLeads.map((lead) => (
+                        <div key={lead.id} className="px-4 py-2.5 flex items-center justify-between hover:bg-accent/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase">
+                              {lead.email[0]}
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-foreground">{lead.email}</p>
+                              {lead.name && (
+                                <p className="text-[10px] text-muted-foreground">{lead.name}</p>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(lead.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center">
+                <Globe className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Landing page will appear here once the phase completes.
+                </p>
               </div>
             )}
           </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
-import { api, SubscriptionInfo, PaymentRecord, APIKeyItem, APIKeyCreateResponse } from "@/lib/api";
+import { api, SubscriptionInfo, PaymentRecord, APIKeyItem, APIKeyCreateResponse, githubApi, GitHubStatus, GitHubRepo } from "@/lib/api";
 import {
   Crown,
   Zap,
@@ -21,6 +21,10 @@ import {
   EyeOff,
   Code2,
   Terminal,
+  Github,
+  ExternalLink,
+  Unlink,
+  Link2,
 } from "lucide-react";
 
 declare global {
@@ -98,6 +102,91 @@ export default function SettingsPage() {
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
 
+  // GitHub state
+  const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
+  const [ghRepos, setGhRepos] = useState<GitHubRepo[]>([]);
+  const [ghToken, setGhToken] = useState("");
+  const [ghConnecting, setGhConnecting] = useState(false);
+  const [ghDisconnecting, setGhDisconnecting] = useState(false);
+  const [ghLoadingRepos, setGhLoadingRepos] = useState(false);
+  const [ghShowToken, setGhShowToken] = useState(false);
+  const [ghSelectedRepo, setGhSelectedRepo] = useState("");
+
+  const loadGitHubStatus = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const status = await githubApi.status(token);
+      setGhStatus(status);
+      if (status.connected) {
+        setGhLoadingRepos(true);
+        try {
+          const repos = await githubApi.repos(token);
+          setGhRepos(repos);
+          if (status.default_repo) setGhSelectedRepo(status.default_repo);
+        } catch {
+          // ignore
+        } finally {
+          setGhLoadingRepos(false);
+        }
+      }
+    } catch {
+      setGhStatus({ connected: false, github_username: null, default_repo: null, connected_at: null });
+    }
+  }, [getToken]);
+
+  async function handleGitHubConnect() {
+    const token = getToken();
+    if (!token || !ghToken.trim()) return;
+    setGhConnecting(true);
+    try {
+      const status = await githubApi.connect(token, ghToken.trim());
+      setGhStatus(status);
+      setGhToken("");
+      setMessage({ type: "success", text: `GitHub connected as @${status.github_username}` });
+      // Load repos after connecting
+      try {
+        const repos = await githubApi.repos(token);
+        setGhRepos(repos);
+      } catch { /* ignore */ }
+    } catch (err: unknown) {
+      const detail = (err as { data?: { detail?: string } })?.data?.detail || "Failed to connect GitHub";
+      setMessage({ type: "error", text: detail });
+    } finally {
+      setGhConnecting(false);
+    }
+  }
+
+  async function handleGitHubDisconnect() {
+    const token = getToken();
+    if (!token) return;
+    if (!window.confirm("Disconnect GitHub? This will remove your token and disable issue export.")) return;
+    setGhDisconnecting(true);
+    try {
+      await githubApi.disconnect(token);
+      setGhStatus({ connected: false, github_username: null, default_repo: null, connected_at: null });
+      setGhRepos([]);
+      setGhSelectedRepo("");
+      setMessage({ type: "success", text: "GitHub disconnected." });
+    } catch {
+      setMessage({ type: "error", text: "Failed to disconnect GitHub." });
+    } finally {
+      setGhDisconnecting(false);
+    }
+  }
+
+  async function handleSetDefaultRepo(repo: string) {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await githubApi.setDefaultRepo(token, repo);
+      setGhSelectedRepo(repo);
+      setMessage({ type: "success", text: `Default repo set to ${repo}` });
+    } catch {
+      setMessage({ type: "error", text: "Failed to set default repo." });
+    }
+  }
+
   const loadApiKeys = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -172,8 +261,9 @@ export default function SettingsPage() {
   useEffect(() => {
     loadData();
     loadApiKeys();
+    loadGitHubStatus();
     loadRazorpayScript();
-  }, [loadData, loadApiKeys]);
+  }, [loadData, loadApiKeys, loadGitHubStatus]);
 
   function loadRazorpayScript() {
     if (document.getElementById("razorpay-script")) return;
@@ -615,6 +705,146 @@ export default function SettingsPage() {
               </code>
             </div>
           </>
+        )}
+      </div>
+
+      {/* GitHub Integration */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              <Github className="inline h-5 w-5 mr-2 text-muted-foreground" />
+              GitHub Integration
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Connect GitHub to export AI-generated tasks as issues with labels &amp; milestones
+            </p>
+          </div>
+          {ghStatus?.connected && (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-400 border border-green-500/20">
+                @{ghStatus.github_username}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {!ghStatus?.connected ? (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border/50 bg-secondary/30 p-5">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#24292e] text-white">
+                  <Github className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-medium text-foreground mb-1">Connect with a Personal Access Token</h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Create a{" "}
+                    <a
+                      href="https://github.com/settings/tokens/new?description=LaunchPadAI&scopes=repo"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-400 hover:text-purple-300 underline underline-offset-2"
+                    >
+                      fine-grained token
+                      <ExternalLink className="inline h-3 w-3 ml-0.5" />
+                    </a>{" "}
+                    with <code className="rounded bg-secondary px-1 py-0.5 text-xs">repo</code> scope.
+                    Your token is stored securely and only used to create issues.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={ghShowToken ? "text" : "password"}
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        value={ghToken}
+                        onChange={(e) => setGhToken(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleGitHubConnect()}
+                        className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-2.5 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 font-mono"
+                      />
+                      <button
+                        onClick={() => setGhShowToken(!ghShowToken)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {ghShowToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleGitHubConnect}
+                      disabled={ghConnecting || !ghToken.trim()}
+                      className="flex items-center gap-2 rounded-xl bg-[#24292e] hover:bg-[#2f363d] px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
+                    >
+                      {ghConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                      Connect
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Connected status + default repo selector */}
+            <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-sm font-medium text-green-300">Connected to GitHub</span>
+                </div>
+                <button
+                  onClick={handleGitHubDisconnect}
+                  disabled={ghDisconnecting}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  {ghDisconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlink className="h-3 w-3" />}
+                  Disconnect
+                </button>
+              </div>
+
+              {/* Default repo selector */}
+              <div>
+                <label className="text-xs text-muted-foreground mb-1.5 block">Default repository for issue export</label>
+                {ghLoadingRepos ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading repositories...
+                  </div>
+                ) : (
+                  <select
+                    value={ghSelectedRepo}
+                    onChange={(e) => handleSetDefaultRepo(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select a repository...</option>
+                    {ghRepos.map((repo) => (
+                      <option key={repo.full_name} value={repo.full_name}>
+                        {repo.full_name} {repo.private ? "(private)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            {/* How it works */}
+            <div className="rounded-xl border border-border/50 bg-secondary/20 p-4">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">How it works</h4>
+              <ul className="space-y-1.5 text-xs text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-0.5">1.</span>
+                  Run the <strong className="text-foreground">Coding Context</strong> phase to generate task decomposition
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-0.5">2.</span>
+                  Click <strong className="text-foreground">Export to GitHub</strong> on the phase results
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-0.5">3.</span>
+                  Tasks become issues with labels, milestones &amp; dependency links
+                </li>
+              </ul>
+            </div>
+          </div>
         )}
       </div>
 

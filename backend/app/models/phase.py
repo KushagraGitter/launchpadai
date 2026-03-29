@@ -14,6 +14,7 @@ from app.core.database import Base
 class PhaseType(str, enum.Enum):
     DISCOVERY = "discovery"
     VALIDATION = "validation"
+    LANDING_PAGE = "landing_page"
     PRD = "prd"
     CODING_CONTEXT = "coding_context"
     GTM = "gtm"

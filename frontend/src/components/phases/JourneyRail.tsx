@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { Project, Phase } from "@/lib/api";
 
-const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
 
 const JOURNEY_STEPS: Record<
   string,
@@ -45,6 +45,14 @@ const JOURNEY_STEPS: Record<
     color: "#f59e0b",
     gradient: "from-amber-500 to-orange-500",
     completedSummary: "Market validated",
+  },
+  landing_page: {
+    label: "Landing Page",
+    sublabel: "Capture real demand",
+    icon: Globe,
+    color: "#ec4899",
+    gradient: "from-pink-500 to-rose-500",
+    completedSummary: "Landing page live",
   },
   prd: {
     label: "Write PRD",

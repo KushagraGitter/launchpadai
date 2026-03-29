@@ -12,7 +12,7 @@ import PhasePage from "@/components/phases/PhasePage";
 import { useAgentProgress } from "@/lib/useAgentProgress";
 import ProfileDropdown from "@/components/ui/ProfileDropdown";
 
-const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
 
 export default function ProjectPage() {
   const params = useParams();

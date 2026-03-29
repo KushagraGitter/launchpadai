@@ -46,6 +46,7 @@ model Project {
 enum PhaseType {
   DISCOVERY
   VALIDATION
+  LANDING_PAGE
   PRD
   CODING_CONTEXT
   GTM

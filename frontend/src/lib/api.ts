@@ -427,6 +427,113 @@ export interface ChatHistory {
   project_idea: string;
 }
 
+// ── GitHub Integration ─────────────────────────────────────────────────────
+export interface GitHubStatus {
+  connected: boolean;
+  github_username: string | null;
+  default_repo: string | null;
+  connected_at: string | null;
+}
+
+export interface GitHubRepo {
+  full_name: string;
+  name: string;
+  private: boolean;
+  description: string | null;
+  html_url: string;
+}
+
+export interface GitHubIssueResult {
+  number: number;
+  html_url: string;
+  title: string;
+}
+
+export interface GitHubExportResult {
+  repo: string;
+  issues_created: number;
+  issues: GitHubIssueResult[];
+  errors: string[];
+}
+
+export const githubApi = {
+  status: (token: string) =>
+    apiFetch<GitHubStatus>("/api/integrations/github/status", { token }),
+
+  connect: (token: string, ghToken: string) =>
+    apiFetch<GitHubStatus>("/api/integrations/github/connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: ghToken }),
+      token,
+    }),
+
+  disconnect: (token: string) =>
+    apiFetch<{ status: string }>("/api/integrations/github/disconnect", {
+      method: "DELETE",
+      token,
+    }),
+
+  repos: (token: string) =>
+    apiFetch<GitHubRepo[]>("/api/integrations/github/repos", { token }),
+
+  setDefaultRepo: (token: string, repo: string) =>
+    apiFetch<GitHubStatus>("/api/integrations/github/default-repo", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo }),
+      token,
+    }),
+
+  exportToGitHub: (token: string, projectId: string, repo: string) =>
+    apiFetch<GitHubExportResult>(`/api/${projectId}/export/github`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo }),
+      token,
+    }),
+};
+
+// ── Landing Page ──────────────────────────────────────────────────────────
+export interface LandingPageInfo {
+  id: string;
+  project_id: string;
+  slug: string;
+  page_title: string;
+  meta_description: string;
+  is_published: boolean;
+  view_count: number;
+  template_style: string;
+  created_at: string;
+  updated_at: string;
+  lead_count: number;
+  conversion_rate: number;
+  public_url: string;
+}
+
+export interface LandingPageLead {
+  id: string;
+  email: string;
+  name: string | null;
+  source: string | null;
+  created_at: string;
+}
+
+export const landingPageApi = {
+  getInfo: (token: string, projectId: string) =>
+    apiFetch<LandingPageInfo>(`/api/projects/${projectId}/landing-page`, { token }),
+
+  getLeads: (token: string, projectId: string) =>
+    apiFetch<LandingPageLead[]>(`/api/projects/${projectId}/landing-page/leads`, { token }),
+
+  togglePublish: (token: string, projectId: string, publish: boolean) =>
+    apiFetch<{ is_published: boolean; slug: string }>(`/api/projects/${projectId}/landing-page/publish`, {
+      method: "PUT",
+      body: JSON.stringify({ publish }),
+      token,
+    }),
+};
+
 export const chatApi = {
   history: (token: string, projectId: string) =>
     apiFetch<ChatHistory>(`/api/projects/${projectId}/chat/history`, { token }),

@@ -3,18 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, chat, projects, phases, websocket, export, subscriptions, webhooks, scores, api_keys, developer_api
+from app.api.routes import auth, chat, projects, phases, websocket, export, subscriptions, webhooks, scores, api_keys, developer_api, github, landing_pages
 from app.core.config import settings
 from app.core.database import engine
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        from app.agents.base import configure_langsmith
-        configure_langsmith()
-    except ImportError:
-        pass  # crewai not installed — v1 agents unavailable, v2 worker handles phases
+    # v2 TypeScript/LangGraph agent-worker handles all phase execution.
+    # LangSmith tracing is configured in the agent-worker process, not here.
     yield
     await engine.dispose()
 
@@ -45,6 +42,8 @@ app.include_router(webhooks.router, prefix="/api/webhooks", tags=["webhooks"])
 app.include_router(scores.router, prefix="/api/projects", tags=["scores"])
 app.include_router(api_keys.router, prefix="/api/keys", tags=["api-keys"])
 app.include_router(developer_api.router, prefix="/api/v1", tags=["developer-api"])
+app.include_router(github.router, prefix="/api", tags=["github"])
+app.include_router(landing_pages.router, prefix="/api", tags=["landing-pages"])
 
 
 @app.get("/api/health")

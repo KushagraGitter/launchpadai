@@ -38,3 +38,4 @@ class User(Base):
     projects: Mapped[list["Project"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
     subscription: Mapped["Subscription"] = relationship(back_populates="user", uselist=False, cascade="all, delete-orphan")
     api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    github_integration: Mapped[Optional["GitHubIntegration"]] = relationship(back_populates="owner", uselist=False, cascade="all, delete-orphan")
