@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-PHASE_ORDER = [PhaseType.DISCOVERY, PhaseType.VALIDATION, PhaseType.LANDING_PAGE, PhaseType.PRD, PhaseType.CODING_CONTEXT, PhaseType.GTM]
+PHASE_ORDER = [PhaseType.DISCOVERY, PhaseType.VALIDATION, PhaseType.PRD, PhaseType.CODING_CONTEXT, PhaseType.GTM]
 
 STUCK_PHASE_TIMEOUT = timedelta(minutes=5)
 

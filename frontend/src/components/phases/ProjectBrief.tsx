@@ -14,11 +14,10 @@ import {
 } from "lucide-react";
 import type { Project, Phase } from "@/lib/api";
 
-const PHASE_ORDER = ["validation", "landing_page", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["validation", "prd", "coding_context", "gtm"];
 
 const PHASE_LABELS: Record<string, string> = {
   validation: "Idea Validation",
-  landing_page: "Landing Page",
   prd: "PRD Generation",
   coding_context: "Coding Context",
   gtm: "Go-to-Market",

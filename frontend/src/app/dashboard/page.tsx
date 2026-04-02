@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { api, type Project, ApiError } from "@/lib/api";
 import { formatRelative, PHASE_LABELS } from "@/lib/utils";
 import {
@@ -19,33 +20,32 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-const PLAN_BADGE: Record<string, { label: string; cls: string }> = {
-  free: { label: "FREE", cls: "bg-secondary text-muted-foreground border border-border" },
-  pro: { label: "PRO", cls: "bg-emerald-600/20 text-emerald-300 border border-emerald-500/30" },
-  team: { label: "TEAM", cls: "bg-teal-600/20 text-teal-300 border border-teal-500/30" },
+const PLAN_BADGE: Record<string, { label: string; cls: string; gradient: string }> = {
+  free: { label: "FREE", cls: "text-zinc-400", gradient: "from-zinc-500/20 to-zinc-600/10 border-zinc-500/20" },
+  pro: { label: "PRO", cls: "text-emerald-400", gradient: "from-emerald-500/20 to-teal-500/10 border-emerald-500/30" },
+  team: { label: "TEAM", cls: "text-violet-400", gradient: "from-violet-500/20 to-purple-500/10 border-violet-500/30" },
 };
 
 const CARD_COLORS = [
-  { bg: "rgba(6,182,212,0.08)", border: "rgba(6,182,212,0.25)", accent: "#06b6d4", iconBg: "rgba(6,182,212,0.15)" },
-  { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)", accent: "#10b981", iconBg: "rgba(16,185,129,0.15)" },
-  { bg: "rgba(139,92,246,0.08)", border: "rgba(139,92,246,0.25)", accent: "#8b5cf6", iconBg: "rgba(139,92,246,0.15)" },
-  { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.25)", accent: "#f59e0b", iconBg: "rgba(245,158,11,0.15)" },
-  { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)", accent: "#3b82f6", iconBg: "rgba(59,130,246,0.15)" },
-  { bg: "rgba(236,72,153,0.08)", border: "rgba(236,72,153,0.25)", accent: "#ec4899", iconBg: "rgba(236,72,153,0.15)" },
-  { bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.25)", accent: "#a855f7", iconBg: "rgba(168,85,247,0.15)" },
-  { bg: "rgba(34,197,94,0.08)", border: "rgba(34,197,94,0.25)", accent: "#22c55e", iconBg: "rgba(34,197,94,0.15)" },
+  { gradient: "from-cyan-500/15 to-blue-500/5", border: "border-cyan-500/20", accent: "#06b6d4", hoverGlow: "from-cyan-500/20 to-blue-500/10" },
+  { gradient: "from-emerald-500/15 to-green-500/5", border: "border-emerald-500/20", accent: "#10b981", hoverGlow: "from-emerald-500/20 to-green-500/10" },
+  { gradient: "from-violet-500/15 to-purple-500/5", border: "border-violet-500/20", accent: "#8b5cf6", hoverGlow: "from-violet-500/20 to-purple-500/10" },
+  { gradient: "from-amber-500/15 to-orange-500/5", border: "border-amber-500/20", accent: "#f59e0b", hoverGlow: "from-amber-500/20 to-orange-500/10" },
+  { gradient: "from-blue-500/15 to-indigo-500/5", border: "border-blue-500/20", accent: "#3b82f6", hoverGlow: "from-blue-500/20 to-indigo-500/10" },
+  { gradient: "from-pink-500/15 to-rose-500/5", border: "border-pink-500/20", accent: "#ec4899", hoverGlow: "from-pink-500/20 to-rose-500/10" },
+  { gradient: "from-purple-500/15 to-fuchsia-500/5", border: "border-purple-500/20", accent: "#a855f7", hoverGlow: "from-purple-500/20 to-fuchsia-500/10" },
+  { gradient: "from-green-500/15 to-teal-500/5", border: "border-green-500/20", accent: "#22c55e", hoverGlow: "from-green-500/20 to-teal-500/10" },
 ];
 
 function getProjectStatus(project: Project): { label: string; dotCls: string; textCls: string; bgCls: string } {
-  if (project.status === "completed") return { label: "Completed", dotCls: "bg-emerald-400", textCls: "text-emerald-400", bgCls: "bg-emerald-500/15" };
-  if (project.current_phase) return { label: "In progress", dotCls: "bg-green-400", textCls: "text-green-400", bgCls: "bg-green-500/15" };
-  return { label: "Not started", dotCls: "bg-slate-400", textCls: "text-slate-400", bgCls: "bg-slate-500/10" };
+  if (project.status === "completed") return { label: "Completed", dotCls: "bg-emerald-400", textCls: "text-emerald-400", bgCls: "bg-emerald-500/15 border border-emerald-500/20" };
+  if (project.current_phase) return { label: "In progress", dotCls: "bg-green-400", textCls: "text-green-400", bgCls: "bg-green-500/15 border border-green-500/20" };
+  return { label: "Not started", dotCls: "bg-zinc-500", textCls: "text-zinc-400", bgCls: "bg-zinc-500/10 border border-zinc-500/15" };
 }
 
 export default function DashboardPage() {
-  const token = useAuth((s) => s.accessToken);
   const user = useAuth((s) => s.user);
-  const refreshUser = useAuth((s) => s.refreshUser);
+  const { getToken, isSignedIn } = useClerkAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
@@ -55,11 +55,10 @@ export default function DashboardPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (token) {
+    if (user) {
       loadProjects();
-      refreshUser();
     }
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     if (!openMenuId) return;
@@ -69,6 +68,7 @@ export default function DashboardPage() {
   }, [openMenuId]);
 
   async function loadProjects() {
+    const token = await getToken();
     if (!token) return;
     setLoading(true);
     try {
@@ -89,11 +89,11 @@ export default function DashboardPage() {
   }
 
   async function handleDelete(project: Project) {
+    const token = await getToken();
     if (!token || !window.confirm(`Delete "${project.name}"? This cannot be undone.`)) return;
     try {
       await api.projects.delete(token, project.id);
       loadProjects();
-      refreshUser();
     } catch { /* ignore */ }
   }
 
@@ -106,25 +106,28 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Projects</h1>
-          <div className="mt-1.5 flex items-center gap-2">
-            <p className="text-sm text-muted-foreground">{limitLabel} projects</p>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider ${badge.cls}`}>
+          <h1 className="text-3xl font-bold text-white">Projects</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <p className="text-sm text-zinc-400">{limitLabel} projects</p>
+            <span className={`inline-flex items-center rounded-lg bg-gradient-to-r ${badge.gradient} border px-2.5 py-0.5 text-[10px] font-bold tracking-wider ${badge.cls}`}>
               {badge.label}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {plan === "free" && (
             <button
               onClick={() => router.push("/dashboard/settings")}
-              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-600/10 px-3.5 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-600/20 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-sm px-4 py-2.5 text-xs font-medium text-emerald-400 hover:bg-emerald-500/15 hover:border-emerald-500/30 transition-all duration-200"
             >
               <Crown className="h-3.5 w-3.5" />
               Upgrade
             </button>
           )}
-          <button onClick={handleNewProject} className="btn-primary">
+          <button
+            onClick={handleNewProject}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 hover:from-emerald-400 hover:to-teal-400 transition-all duration-300"
+          >
             <Plus className="h-4 w-4" />
             New Project
           </button>
@@ -136,7 +139,6 @@ export default function DashboardPage() {
           onCreated={() => {
             setShowCreate(false);
             loadProjects();
-            refreshUser();
           }}
         />
       </Dialog>
@@ -151,20 +153,23 @@ export default function DashboardPage() {
         </div>
       ) : projects.length === 0 ? (
         <div className="mt-20 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-accent border border-border">
-            <FolderOpen className="h-8 w-8 text-muted-foreground" />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.08] backdrop-blur-xl">
+            <FolderOpen className="h-9 w-9 text-zinc-500" />
           </div>
-          <h3 className="mt-5 text-lg font-semibold text-foreground">No projects yet</h3>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <h3 className="mt-6 text-lg font-semibold text-white">No projects yet</h3>
+          <p className="mt-2 text-sm text-zinc-500">
             Start by submitting your first idea
           </p>
-          <button onClick={handleNewProject} className="btn-primary mt-6">
+          <button
+            onClick={handleNewProject}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all duration-300"
+          >
             <Sparkles className="h-4 w-4" />
             New Project
           </button>
         </div>
       ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project, idx) => {
             const colors = CARD_COLORS[idx % CARD_COLORS.length];
             const pStatus = getProjectStatus(project);
@@ -172,34 +177,33 @@ export default function DashboardPage() {
             return (
               <div
                 key={project.id}
-                className="group relative rounded-2xl transition-all duration-200 hover:-translate-y-0.5"
-                style={{
-                  backgroundColor: colors.bg,
-                  border: `1px solid ${colors.border}`,
-                }}
+                className={`group relative rounded-2xl border ${colors.border} bg-gradient-to-br ${colors.gradient} backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl overflow-hidden`}
               >
+                {/* Hover glow */}
+                <div className={`absolute top-0 right-0 h-32 w-32 rounded-full bg-gradient-to-bl ${colors.hoverGlow} blur-[50px] opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+
                 {/* 3-dot menu */}
-                <div className="absolute top-3 right-3 z-10">
+                <div className="absolute top-4 right-4 z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       e.preventDefault();
                       setOpenMenuId(openMenuId === project.id ? null : project.id);
                     }}
-                    className="rounded-lg p-1.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-white/5 transition-all"
+                    className="rounded-lg p-1.5 text-zinc-500 opacity-0 group-hover:opacity-100 hover:bg-white/[0.08] hover:text-zinc-300 transition-all"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </button>
 
                   {openMenuId === project.id && (
-                    <div className="absolute right-0 mt-1 w-36 rounded-xl border border-border bg-card py-1 z-20" style={{ boxShadow: "0 8px 30px rgba(0,0,0,0.3)" }}>
+                    <div className="absolute right-0 mt-1 w-40 rounded-xl border border-white/[0.08] bg-[#111318]/95 backdrop-blur-xl py-1 z-20 shadow-2xl shadow-black/40">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenMenuId(null);
                           router.push(`/project/${project.id}`);
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-xs text-zinc-300 hover:bg-white/[0.05] hover:text-white transition-all"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         Open
@@ -210,7 +214,7 @@ export default function DashboardPage() {
                           setOpenMenuId(null);
                           handleDelete(project);
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                        className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-all"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                         Delete
@@ -219,35 +223,35 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                <Link href={`/project/${project.id}`} className="block p-5">
+                <Link href={`/project/${project.id}`} className="relative block p-6">
                   {/* Title row */}
                   <div className="flex items-center gap-3">
                     <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                      style={{ backgroundColor: colors.iconBg, color: colors.accent }}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-lg transition-transform duration-300 group-hover:scale-110"
+                      style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}
                     >
-                      <Rocket className="h-4 w-4" />
+                      <Rocket className="h-5 w-5" />
                     </div>
-                    <h3 className="font-semibold text-foreground truncate pr-6">
+                    <h3 className="font-semibold text-white truncate pr-8 text-base">
                       {project.name}
                     </h3>
                   </div>
 
                   {/* Description */}
-                  <p className="mt-3 text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                  <p className="mt-4 text-sm text-zinc-400 line-clamp-3 leading-relaxed">
                     {project.raw_idea}
                   </p>
 
                   {/* Domain & audience */}
-                  <div className="mt-4 space-y-1.5">
+                  <div className="mt-4 space-y-2">
                     {project.domain && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
                         <Diamond className="h-3 w-3 shrink-0" style={{ color: colors.accent }} />
                         <span>{project.domain}</span>
                       </div>
                     )}
                     {project.target_audience && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
                         <Users className="h-3 w-3 shrink-0" style={{ color: colors.accent }} />
                         <span>{project.target_audience}</span>
                       </div>
@@ -255,12 +259,12 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Footer: status + time */}
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${pStatus.bgCls} ${pStatus.textCls}`}>
+                  <div className="mt-5 flex items-center justify-between">
+                    <span className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium ${pStatus.bgCls} ${pStatus.textCls}`}>
                       <span className={`h-1.5 w-1.5 rounded-full ${pStatus.dotCls}`} />
                       {pStatus.label}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[11px] text-zinc-600">
                       {formatRelative(project.created_at)}
                     </span>
                   </div>
@@ -278,25 +282,25 @@ function UpgradeDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
 
   return (
-    <DialogContent className="max-w-md text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500">
-        <Zap className="h-7 w-7 text-white" />
+    <DialogContent className="max-w-md text-center !bg-[#111318] !border-white/[0.08]">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-xl shadow-teal-500/20">
+        <Zap className="h-8 w-8 text-white" />
       </div>
       <DialogHeader className="text-center">
-        <DialogTitle className="text-xl">Project limit reached</DialogTitle>
-        <DialogDescription>
+        <DialogTitle className="text-xl text-white">Project limit reached</DialogTitle>
+        <DialogDescription className="text-zinc-400">
           Your free plan allows 1 project. Upgrade to Pro for up to 5 projects, or Team for unlimited.
         </DialogDescription>
       </DialogHeader>
       <div className="mt-2 flex flex-col gap-2">
         <button
           onClick={() => { onClose(); router.push("/dashboard/settings"); }}
-          className="btn-primary w-full"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 transition-all duration-300"
         >
           <Crown className="h-4 w-4" />
           View Plans & Upgrade
         </button>
-        <button onClick={onClose} className="btn-ghost w-full">
+        <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm text-zinc-400 hover:text-white hover:bg-white/[0.05] transition-all">
           Cancel
         </button>
       </div>
@@ -305,7 +309,7 @@ function UpgradeDialog({ onClose }: { onClose: () => void }) {
 }
 
 function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
-  const token = useAuth((s) => s.accessToken);
+  const { getToken } = useClerkAuth();
   const [name, setName] = useState("");
   const [rawIdea, setRawIdea] = useState("");
   const [domain, setDomain] = useState("");
@@ -315,6 +319,7 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const token = await getToken();
     if (!token) return;
     setError("");
     setLoading(true);
@@ -338,13 +343,13 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-lg !bg-[#111318] !border-white/[0.08]">
       <DialogHeader>
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600">
-            <Rocket className="h-4 w-4 text-white -rotate-45" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-lg shadow-teal-500/20">
+            <Rocket className="h-5 w-5 text-white -rotate-45" />
           </div>
-          <DialogTitle>New Project</DialogTitle>
+          <DialogTitle className="text-white text-lg">New Project</DialogTitle>
         </div>
       </DialogHeader>
 
@@ -353,7 +358,7 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
           <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">{error}</div>
         )}
         <div>
-          <label htmlFor="project-name" className="block text-sm font-medium text-foreground">
+          <label htmlFor="project-name" className="block text-sm font-medium text-zinc-300">
             Project name
           </label>
           <input
@@ -362,11 +367,11 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My SaaS Idea"
-            className="input-field mt-1.5"
+            className="mt-1.5 block w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-all"
           />
         </div>
         <div>
-          <label htmlFor="raw-idea" className="block text-sm font-medium text-foreground">
+          <label htmlFor="raw-idea" className="block text-sm font-medium text-zinc-300">
             Describe your idea
           </label>
           <textarea
@@ -377,12 +382,12 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
             value={rawIdea}
             onChange={(e) => setRawIdea(e.target.value)}
             placeholder="An AI-powered tool that helps developers..."
-            className="input-field mt-1.5 resize-none"
+            className="mt-1.5 block w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 resize-none transition-all"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="domain" className="block text-sm font-medium text-foreground">
+            <label htmlFor="domain" className="block text-sm font-medium text-zinc-300">
               Domain
             </label>
             <input
@@ -390,11 +395,11 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
               value={domain}
               onChange={(e) => setDomain(e.target.value)}
               placeholder="e.g. DevTools"
-              className="input-field mt-1.5"
+              className="mt-1.5 block w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-all"
             />
           </div>
           <div>
-            <label htmlFor="audience" className="block text-sm font-medium text-foreground">
+            <label htmlFor="audience" className="block text-sm font-medium text-zinc-300">
               Target audience
             </label>
             <input
@@ -402,17 +407,21 @@ function CreateProjectDialog({ onCreated }: { onCreated: () => void }) {
               value={targetAudience}
               onChange={(e) => setTargetAudience(e.target.value)}
               placeholder="e.g. Indie devs"
-              className="input-field mt-1.5"
+              className="mt-1.5 block w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/30 transition-all"
             />
           </div>
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <DialogClose asChild>
-            <button type="button" className="btn-ghost">
+            <button type="button" className="rounded-xl px-4 py-2.5 text-sm text-zinc-400 hover:text-white hover:bg-white/[0.05] transition-all">
               Cancel
             </button>
           </DialogClose>
-          <button type="submit" disabled={loading} className="btn-primary">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 hover:from-emerald-400 hover:to-teal-400 transition-all duration-300 disabled:opacity-50"
+          >
             {loading ? "Creating..." : "Create Project"}
             {!loading && <ArrowRight className="h-4 w-4" />}
           </button>

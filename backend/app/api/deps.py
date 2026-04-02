@@ -9,9 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.core.clerk import verify_clerk_token
 from app.models.user import User
 from app.models.project import Project
 from app.models.subscription import Subscription, PlanType, PLAN_LIMITS, SubscriptionStatus
+from app.services.clerk_sync import get_or_create_user_from_clerk
 
 security_scheme = HTTPBearer()
 
@@ -20,7 +22,28 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    payload = decode_token(credentials.credentials)
+    token = credentials.credentials
+
+    # 1. Try Clerk JWT (RS256)
+    clerk_payload = verify_clerk_token(token)
+    if clerk_payload:
+        clerk_id = clerk_payload.get("sub")
+        if not clerk_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Clerk token: missing sub")
+
+        email = clerk_payload.get("email", clerk_payload.get("email_addresses", [{}])[0].get("email_address", ""))
+        name = clerk_payload.get("name", "")
+        if not name:
+            first = clerk_payload.get("first_name", "")
+            last = clerk_payload.get("last_name", "")
+            name = f"{first} {last}".strip() or email.split("@")[0]
+
+        user = await get_or_create_user_from_clerk(db, clerk_id, email, name)
+        await db.commit()
+        return user
+
+    # 2. Fallback to legacy JWT (HS256)
+    payload = decode_token(token)
     if payload is None or payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

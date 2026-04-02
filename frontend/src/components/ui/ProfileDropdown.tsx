@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { useClerk } from "@clerk/nextjs";
 import { useTheme } from "@/lib/theme";
 import {
   DropdownMenu,
@@ -31,7 +32,8 @@ interface ProfileDropdownProps {
 }
 
 export default function ProfileDropdown({ compact }: ProfileDropdownProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+  const { signOut } = useClerk();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
@@ -154,8 +156,7 @@ export default function ProfileDropdown({ compact }: ProfileDropdownProps) {
 
         <DropdownMenuItem
           onClick={() => {
-            logout();
-            router.push("/auth/login");
+            signOut({ redirectUrl: "/auth/login" });
           }}
           className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
         >

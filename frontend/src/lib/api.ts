@@ -2,7 +2,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 interface FetchOptions extends RequestInit {
   token?: string;
-  _retried?: boolean;
 }
 
 class ApiError extends Error {
@@ -16,54 +15,12 @@ class ApiError extends Error {
   }
 }
 
-let _refreshPromise: Promise<void> | null = null;
-
-async function tryRefreshToken(): Promise<boolean> {
-  const refreshToken = typeof window !== "undefined" ? sessionStorage.getItem("refresh_token") : null;
-  if (!refreshToken) return false;
-
-  try {
-    const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    if (!res.ok) return false;
-
-    const data = await res.json();
-    sessionStorage.setItem("access_token", data.access_token);
-    sessionStorage.setItem("refresh_token", data.refresh_token);
-
-    const { useAuth } = await import("./auth");
-    useAuth.setState({
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-    });
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function refreshOnce(): Promise<boolean> {
-  if (_refreshPromise) {
-    await _refreshPromise;
-    return !!sessionStorage.getItem("access_token");
-  }
-
-  let resolve: () => void;
-  _refreshPromise = new Promise<void>((r) => { resolve = r; });
-
-  const ok = await tryRefreshToken();
-  _refreshPromise = null;
-  resolve!();
-  return ok;
-}
-
+/**
+ * Core fetch wrapper. Clerk manages token lifecycle automatically —
+ * callers pass the token obtained from Clerk's getToken().
+ */
 async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-  const { token, _retried, headers: extraHeaders, ...rest } = options;
+  const { token, headers: extraHeaders, ...rest } = options;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -74,26 +31,11 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
     ),
   };
 
-  const currentToken = token || (typeof window !== "undefined" ? sessionStorage.getItem("access_token") : null);
-  if (currentToken) {
-    headers["Authorization"] = `Bearer ${currentToken}`;
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, { ...rest, headers });
-
-  if (response.status === 401 && !_retried && currentToken) {
-    const refreshed = await refreshOnce();
-    if (refreshed) {
-      return apiFetch<T>(endpoint, { ...options, _retried: true });
-    }
-
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("access_token");
-      sessionStorage.removeItem("refresh_token");
-      const { useAuth } = await import("./auth");
-      useAuth.setState({ accessToken: null, refreshToken: null, user: null });
-    }
-  }
 
   if (!response.ok) {
     const data = await response.json().catch(() => null);
@@ -109,43 +51,8 @@ async function apiFetch<T>(endpoint: string, options: FetchOptions = {}): Promis
 
 export const api = {
   auth: {
-    register: (data: { email: string; password: string; name: string }) =>
-      apiFetch<{ access_token: string; refresh_token: string }>("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    login: (data: { email: string; password: string }) =>
-      apiFetch<{ access_token: string; refresh_token: string }>("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    refresh: (refreshToken: string) =>
-      apiFetch<{ access_token: string; refresh_token: string }>("/api/auth/refresh", {
-        method: "POST",
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      }),
     me: (token: string) =>
       apiFetch<UserInfo>("/api/auth/me", { token }),
-    verifyEmail: (token: string) =>
-      apiFetch<{ message: string }>("/api/auth/verify-email", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      }),
-    resendVerification: (email: string) =>
-      apiFetch<{ message: string }>("/api/auth/resend-verification", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      }),
-    forgotPassword: (email: string) =>
-      apiFetch<{ message: string }>("/api/auth/forgot-password", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-      }),
-    resetPassword: (token: string, password: string) =>
-      apiFetch<{ message: string }>("/api/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({ token, password }),
-      }),
   },
 
   projects: {
@@ -549,36 +456,14 @@ export const chatApi = {
     phase?: string;
     feedback_count?: number;
   }> {
-    let currentToken = sessionStorage.getItem("access_token") || token;
-
-    let response: Response;
-    try {
-      response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${currentToken}`,
-        },
-        body: JSON.stringify({ message }),
-      });
-    } catch (networkErr) {
-      throw new ApiError(0, "Network error — unable to reach the server", null);
-    }
-
-    if (response.status === 401) {
-      const refreshed = await refreshOnce();
-      if (refreshed) {
-        currentToken = sessionStorage.getItem("access_token") || currentToken;
-        response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${currentToken}`,
-          },
-          body: JSON.stringify({ message }),
-        });
-      }
-    }
+    const response = await fetch(`${API_BASE}/api/projects/${projectId}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message }),
+    });
 
     if (!response.ok) {
       throw new ApiError(response.status, response.statusText, null);

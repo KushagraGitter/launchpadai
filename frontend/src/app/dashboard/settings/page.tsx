@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { api, SubscriptionInfo, PaymentRecord, APIKeyItem, APIKeyCreateResponse, githubApi, GitHubStatus, GitHubRepo } from "@/lib/api";
 import {
   Crown,
@@ -84,7 +85,8 @@ const PLANS = [
 ];
 
 export default function SettingsPage() {
-  const { getToken, user, refreshUser } = useAuth();
+  const { user } = useAuth();
+  const { getToken } = useClerkAuth();
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,7 @@ export default function SettingsPage() {
   const [ghSelectedRepo, setGhSelectedRepo] = useState("");
 
   const loadGitHubStatus = useCallback(async () => {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const status = await githubApi.status(token);
@@ -136,7 +138,7 @@ export default function SettingsPage() {
   }, [getToken]);
 
   async function handleGitHubConnect() {
-    const token = getToken();
+    const token = await getToken();
     if (!token || !ghToken.trim()) return;
     setGhConnecting(true);
     try {
@@ -158,7 +160,7 @@ export default function SettingsPage() {
   }
 
   async function handleGitHubDisconnect() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     if (!window.confirm("Disconnect GitHub? This will remove your token and disable issue export.")) return;
     setGhDisconnecting(true);
@@ -176,7 +178,7 @@ export default function SettingsPage() {
   }
 
   async function handleSetDefaultRepo(repo: string) {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       await githubApi.setDefaultRepo(token, repo);
@@ -188,7 +190,7 @@ export default function SettingsPage() {
   }
 
   const loadApiKeys = useCallback(async () => {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const data = await api.keys.list(token);
@@ -202,7 +204,7 @@ export default function SettingsPage() {
   }, [getToken]);
 
   async function handleCreateKey() {
-    const token = getToken();
+    const token = await getToken();
     if (!token || !newKeyName.trim()) return;
     setCreatingKey(true);
     try {
@@ -220,7 +222,7 @@ export default function SettingsPage() {
   }
 
   async function handleRevokeKey(keyId: string) {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     if (!window.confirm("Revoke this API key? This cannot be undone.")) return;
     setRevokingKeyId(keyId);
@@ -242,7 +244,7 @@ export default function SettingsPage() {
   }
 
   const loadData = useCallback(async () => {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const [sub, hist] = await Promise.all([
@@ -275,7 +277,7 @@ export default function SettingsPage() {
   }
 
   async function handleUpgrade(planId: string) {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setCheckoutLoading(planId);
     setMessage(null);
@@ -297,7 +299,7 @@ export default function SettingsPage() {
             });
             setMessage({ type: "success", text: "Subscription activated successfully!" });
             loadData();
-            refreshUser();
+            // user info refreshed via Clerk sync
           } catch {
             setMessage({ type: "error", text: "Payment verification failed. Please contact support." });
           }
@@ -326,7 +328,7 @@ export default function SettingsPage() {
   }
 
   async function handleCancel() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     if (!window.confirm("Are you sure you want to cancel your subscription? You will be downgraded at the end of your billing period.")) return;
 
@@ -335,7 +337,7 @@ export default function SettingsPage() {
       await api.subscriptions.cancel(token);
       setMessage({ type: "success", text: "Subscription cancelled. It will remain active until the end of the billing period." });
       loadData();
-      refreshUser();
+      // user info refreshed via Clerk sync
     } catch {
       setMessage({ type: "error", text: "Failed to cancel subscription." });
     } finally {

@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { api, ApiError, Artifact, Phase, PhaseFeedback, FeedbackType, githubApi, GitHubStatus, landingPageApi, LandingPageInfo, LandingPageLead } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useToast } from "@/lib/toast";
 import type { AgentProgress } from "@/lib/useAgentProgress";
 
@@ -102,18 +102,6 @@ const PHASE_META: Record<
     ],
     estimatedTime: "~2 min",
   },
-  landing_page: {
-    label: "Landing Page",
-    color: "#ec4899",
-    icon: Globe,
-    description:
-      "Auto-generate a high-converting SaaS landing page to capture real customer interest before you build. Validates demand with waitlist signups.",
-    agents: [
-      { name: "Landing Page Copywriter", task: "Conversion-optimized copy, headlines, and CTAs" },
-      { name: "Landing Page Builder", task: "Complete Tailwind HTML page with email capture" },
-    ],
-    estimatedTime: "~1 min",
-  },
   prd: {
     label: "PRD Generation",
     color: "#3b82f6",
@@ -161,7 +149,7 @@ const PHASE_META: Record<
   },
 };
 
-const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
 
 function stripCodeFences(raw: string): string {
   let s = raw.trim();
@@ -182,7 +170,7 @@ export default function PhasePage({
   agentProgress,
   onPhaseStarted,
 }: PhasePageProps) {
-  const { getToken } = useAuth();
+  const { getToken } = useClerkAuth();
   const toast = useToast();
   const meta = PHASE_META[phaseType];
   const Icon = meta?.icon || Lightbulb;
@@ -268,7 +256,7 @@ export default function PhasePage({
 
   const fetchArtifacts = useCallback(async () => {
     if (!showArtifacts) return;
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setLoadingArtifacts(true);
     try {
@@ -283,7 +271,7 @@ export default function PhasePage({
 
   const fetchFeedback = useCallback(async () => {
     if (!isInReview && !isAccepted) return;
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const items = await api.phases.listFeedback(token, projectId, phaseType);
@@ -319,7 +307,7 @@ export default function PhasePage({
   // Landing page data fetching
   const fetchLandingPage = useCallback(async () => {
     if (phaseType !== "landing_page" || !showArtifacts) return;
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setLpLoading(true);
     try {
@@ -341,7 +329,7 @@ export default function PhasePage({
   }, [fetchLandingPage]);
 
   async function handleTogglePublish() {
-    const token = getToken();
+    const token = await getToken();
     if (!token || !lpInfo) return;
     setLpToggling(true);
     try {
@@ -356,7 +344,7 @@ export default function PhasePage({
   }
 
   async function handleStart() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setStarting(true);
     try {
@@ -377,7 +365,7 @@ export default function PhasePage({
   }
 
   async function handleRerun() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setRerunning(true);
     try {
@@ -397,7 +385,7 @@ export default function PhasePage({
   }
 
   async function handleCancel() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setCancelling(true);
     try {
@@ -412,7 +400,7 @@ export default function PhasePage({
   }
 
   async function handleDownload() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       await api.phases.exportZip(token, projectId, phaseType);
@@ -422,7 +410,7 @@ export default function PhasePage({
   }
 
   async function handleOpenGitHubExport() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const status = await githubApi.status(token);
@@ -441,7 +429,7 @@ export default function PhasePage({
   }
 
   async function handleExportToGitHub() {
-    const token = getToken();
+    const token = await getToken();
     if (!token || !ghRepo) return;
     setGhExporting(true);
     try {
@@ -462,7 +450,7 @@ export default function PhasePage({
   }
 
   async function handleAccept() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setAccepting(true);
     try {
@@ -477,7 +465,7 @@ export default function PhasePage({
   }
 
   async function handleRefine() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     const agents = negativeArtifactAgents.size > 0
       ? Array.from(negativeArtifactAgents)
@@ -507,7 +495,7 @@ export default function PhasePage({
     feedbackType: FeedbackType,
     comment?: string
   ) {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       await api.phases.submitFeedback(token, projectId, phaseType, {
@@ -1246,7 +1234,7 @@ function ArtifactCard({
   feedback?: PhaseFeedback[];
   onSubmitFeedback?: (artifactId: string, section: string, type: FeedbackType, comment?: string) => void;
 }) {
-  const { getToken } = useAuth();
+  const { getToken } = useClerkAuth();
   const [isOpen, setIsOpen] = useState(isReviewMode);
   const [isEditing, setIsEditing] = useState(false);
   const content = stripCodeFences(artifact.markdown_content || "");
@@ -1264,7 +1252,7 @@ function ArtifactCard({
   const hasThumbsUp = thumbsUpCount > 0 && !hasThumbsDown;
 
   async function handleSave() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setSaving(true);
     try {

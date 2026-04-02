@@ -15,8 +15,9 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    clerk_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, nullable=True, index=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)

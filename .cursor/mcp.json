@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "launchpadai": {
+      "command": "node",
+      "args": ["/Users/kushagrarajpoot/my-studio/AI-Studio/launchpadai/mcp-server/dist/index.js"],
+      "env": {
+        "LAUNCHPADAI_API_KEY": "lpai_j_EFfImiMx4OyjQcxoNP0f0d46WauR0gn_jiv_ciKwg",
+        "LAUNCHPADAI_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}

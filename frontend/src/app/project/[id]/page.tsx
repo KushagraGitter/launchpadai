@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Rocket, Pencil, Sun, Moon, Bell } from "lucide-react";
 import { api, Project, Phase } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
+import { useClerkSync } from "@/lib/useClerkSync";
 import { useTheme } from "@/lib/theme";
 import ChatPanel from "@/components/chat/ChatPanel";
 import JourneyRail from "@/components/phases/JourneyRail";
@@ -12,13 +14,15 @@ import PhasePage from "@/components/phases/PhasePage";
 import { useAgentProgress } from "@/lib/useAgentProgress";
 import ProfileDropdown from "@/components/ui/ProfileDropdown";
 
-const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
 
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
-  const { getToken, user, loadUser, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { getToken } = useClerkAuth();
+  useClerkSync();
 
   const [project, setProject] = useState<Project | null>(null);
   const [phases, setPhases] = useState<Phase[]>([]);
@@ -29,18 +33,8 @@ export default function ProjectPage() {
   const { resolved: themeMode, setTheme } = useTheme();
 
   useEffect(() => {
-    loadUser();
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/auth/login");
-    }
-  }, [authLoading, user, router]);
-
-  useEffect(() => {
     async function fetchProject() {
-      const token = getToken();
+      const token = await getToken();
       if (!token) return;
       try {
         const data = await api.projects.get(token, projectId);
@@ -55,7 +49,7 @@ export default function ProjectPage() {
   }, [projectId, user, getToken, router]);
 
   const fetchPhases = useCallback(async () => {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const data = await api.phases.list(token, projectId);
@@ -98,7 +92,7 @@ export default function ProjectPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex h-screen items-center justify-center bg-[#0a0a0f]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
       </div>
     );
@@ -107,30 +101,36 @@ export default function ProjectPage() {
   if (!project) return null;
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
+    <div className="flex h-screen flex-col bg-[#0a0a0f] text-zinc-200">
+      {/* Subtle background aurora */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-5%] h-[400px] w-[500px] rounded-full bg-gradient-to-br from-teal-600/[0.04] via-emerald-500/[0.03] to-transparent blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-5%] h-[350px] w-[400px] rounded-full bg-gradient-to-bl from-violet-600/[0.04] via-purple-500/[0.03] to-transparent blur-[100px]" />
+      </div>
+
       {/* Header */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-4">
+      <header className="relative flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-2xl px-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-sm text-zinc-400 hover:bg-white/[0.05] hover:text-white transition-all duration-200"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </button>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600">
+          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-md shadow-teal-500/20">
             <Rocket className="h-3.5 w-3.5 text-white -rotate-45" />
           </div>
-          <h1 className="text-sm font-semibold text-foreground truncate max-w-xs">
+          <h1 className="text-sm font-semibold text-white truncate max-w-xs">
             {project.name}
           </h1>
-          <button className="text-muted-foreground hover:text-foreground transition-colors" title="Edit project">
+          <button className="text-zinc-500 hover:text-white transition-colors" title="Edit project">
             <Pencil className="h-3 w-3" />
           </button>
           {project.domain && (
-            <span className="rounded-full bg-accent border border-border px-2 py-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
+            <span className="rounded-lg bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-400 uppercase tracking-wide">
               {project.domain}
             </span>
           )}
@@ -138,7 +138,7 @@ export default function ProjectPage() {
 
         <div className="flex items-center gap-3">
           {runningPhase && (
-            <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-3 py-1">
+            <div className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 backdrop-blur-sm">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs text-emerald-400 font-medium">
                 Working on it...
@@ -148,7 +148,7 @@ export default function ProjectPage() {
           {reviewPhase && (
             <button
               onClick={() => setActivePhase(reviewPhase.phase_type)}
-              className="flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 hover:bg-emerald-400 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1.5 shadow-lg shadow-teal-500/20 hover:shadow-teal-500/30 transition-all duration-200"
             >
               <span className="text-xs text-white font-medium">
                 Review needed
@@ -157,12 +157,12 @@ export default function ProjectPage() {
           )}
           <button
             onClick={() => setTheme(themeMode === "dark" ? "light" : "dark")}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="rounded-lg p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.05] transition-all"
             title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
           >
             {themeMode === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <button className="text-muted-foreground hover:text-foreground transition-colors" title="Notifications">
+          <button className="rounded-lg p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.05] transition-all" title="Notifications">
             <Bell className="h-4 w-4" />
           </button>
           <ProfileDropdown compact />
@@ -170,7 +170,7 @@ export default function ProjectPage() {
       </header>
 
       {/* 3-pane workspace */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 overflow-hidden">
         {/* Left rail */}
         <JourneyRail
           phases={phases}
@@ -192,7 +192,7 @@ export default function ProjectPage() {
         </div>
 
         {/* Right panel — Chat */}
-        <div className="w-80 xl:w-96 shrink-0 border-l border-border overflow-hidden">
+        <div className="w-80 xl:w-96 shrink-0 border-l border-white/[0.06] overflow-hidden">
           <ChatPanel
             projectId={projectId}
             onPhaseStarted={handlePhaseStarted}

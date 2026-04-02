@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { Project, Phase } from "@/lib/api";
 
-const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
 
 const JOURNEY_STEPS: Record<
   string,
@@ -27,6 +27,7 @@ const JOURNEY_STEPS: Record<
     icon: React.ElementType;
     color: string;
     gradient: string;
+    glowColor: string;
     completedSummary: string;
   }
 > = {
@@ -36,6 +37,7 @@ const JOURNEY_STEPS: Record<
     icon: Compass,
     color: "#06b6d4",
     gradient: "from-cyan-500 to-blue-500",
+    glowColor: "rgba(6,182,212,0.15)",
     completedSummary: "Project Brief ready",
   },
   validation: {
@@ -44,15 +46,8 @@ const JOURNEY_STEPS: Record<
     icon: Lightbulb,
     color: "#f59e0b",
     gradient: "from-amber-500 to-orange-500",
+    glowColor: "rgba(245,158,11,0.15)",
     completedSummary: "Market validated",
-  },
-  landing_page: {
-    label: "Landing Page",
-    sublabel: "Capture real demand",
-    icon: Globe,
-    color: "#ec4899",
-    gradient: "from-pink-500 to-rose-500",
-    completedSummary: "Landing page live",
   },
   prd: {
     label: "Write PRD",
@@ -60,6 +55,7 @@ const JOURNEY_STEPS: Record<
     icon: FileText,
     color: "#3b82f6",
     gradient: "from-blue-500 to-indigo-500",
+    glowColor: "rgba(59,130,246,0.15)",
     completedSummary: "Product spec ready",
   },
   coding_context: {
@@ -68,6 +64,7 @@ const JOURNEY_STEPS: Record<
     icon: Code2,
     color: "#22c55e",
     gradient: "from-green-500 to-emerald-500",
+    glowColor: "rgba(34,197,94,0.15)",
     completedSummary: "Coding context exported",
   },
   gtm: {
@@ -76,6 +73,7 @@ const JOURNEY_STEPS: Record<
     icon: Rocket,
     color: "#a855f7",
     gradient: "from-purple-500 to-pink-500",
+    glowColor: "rgba(168,85,247,0.15)",
     completedSummary: "Launch playbook ready",
   },
 };
@@ -97,28 +95,28 @@ export default function JourneyRail({
   const progressPct = Math.round((completedCount / PHASE_ORDER.length) * 100);
 
   return (
-    <div className="w-56 shrink-0 border-r border-border bg-card/50 flex flex-col overflow-hidden">
+    <div className="w-56 shrink-0 border-r border-white/[0.06] bg-[#0a0a0f]/50 backdrop-blur-sm flex flex-col overflow-hidden">
       {/* Project identity */}
-      <div className="px-4 pt-5 pb-4 border-b border-border">
+      <div className="px-4 pt-5 pb-4 border-b border-white/[0.06]">
         <div className="flex items-center gap-1.5 mb-1">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
             Your journey
           </p>
-          <Pencil className="h-2.5 w-2.5 text-muted-foreground/50" />
+          <Pencil className="h-2.5 w-2.5 text-zinc-600" />
         </div>
-        <h2 className="text-sm font-bold text-foreground leading-snug line-clamp-2">
+        <h2 className="text-sm font-bold text-white leading-snug line-clamp-2">
           {project.name}
         </h2>
         {(project.domain || project.target_audience) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {project.domain && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-accent border border-border rounded-full px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5">
                 <Globe className="h-2.5 w-2.5" />
                 {project.domain}
               </span>
             )}
             {project.target_audience && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-accent border border-border rounded-full px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5">
                 <Users className="h-2.5 w-2.5" />
                 {project.target_audience}
               </span>
@@ -127,17 +125,17 @@ export default function JourneyRail({
         )}
 
         <div className="mt-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-muted-foreground">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] text-zinc-500">
               {completedCount} of {PHASE_ORDER.length} done
             </span>
-            <span className="text-[10px] font-semibold text-foreground">
+            <span className="text-[10px] font-semibold text-zinc-300">
               {progressPct}%
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-700"
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-sm shadow-teal-500/30 transition-all duration-700"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -148,7 +146,7 @@ export default function JourneyRail({
       <div className="flex-1 overflow-y-auto py-3 px-2">
         <div className="relative">
           {/* Gradient connector line */}
-          <div className="absolute left-[21px] top-5 bottom-5 w-px bg-gradient-to-b from-cyan-500/20 via-blue-500/15 to-purple-500/20" />
+          <div className="absolute left-[21px] top-5 bottom-5 w-px bg-gradient-to-b from-cyan-500/15 via-blue-500/10 to-purple-500/15" />
 
           <div className="space-y-0.5">
             {PHASE_ORDER.map((pt, idx) => {
@@ -197,12 +195,12 @@ export default function JourneyRail({
                   key={pt}
                   onClick={() => isClickable && onSelectPhase(pt)}
                   disabled={isLocked}
-                  className={`relative w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-all duration-200 ${
+                  className={`relative w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-all duration-200 ${
                     isActive
-                      ? "bg-emerald-500/[0.08] dark:bg-emerald-500/[0.08] border border-emerald-500/20"
+                      ? "bg-gradient-to-r from-white/[0.06] to-white/[0.02] border border-white/[0.1] shadow-sm"
                       : isClickable
-                      ? "hover:bg-accent border border-transparent cursor-pointer"
-                      : "cursor-default opacity-40 border border-transparent"
+                      ? "hover:bg-white/[0.04] border border-transparent cursor-pointer"
+                      : "cursor-default opacity-35 border border-transparent"
                   }`}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -214,22 +212,26 @@ export default function JourneyRail({
                   )}
 
                   <div
-                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-200"
+                    className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-300"
                     style={{
                       backgroundColor:
                         isDone || isInReview || isRunning || isActive
-                          ? `${step.color}12`
-                          : "hsl(var(--secondary))",
+                          ? step.glowColor
+                          : "rgba(255,255,255,0.04)",
                       color:
                         isDone || isInReview || isRunning || isActive
                           ? step.color
-                          : "hsl(var(--muted-foreground))",
+                          : "rgb(113, 113, 122)",
+                      boxShadow:
+                        isActive
+                          ? `0 0 12px ${step.glowColor}`
+                          : "none",
                     }}
                   >
                     {isDone ? (
                       <Check className="h-3.5 w-3.5 text-green-400" strokeWidth={3} />
                     ) : isInReview ? (
-                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
                     ) : isRunning ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: step.color }} />
                     ) : isLocked ? (
@@ -245,17 +247,17 @@ export default function JourneyRail({
                     <p
                       className={`text-[11px] font-semibold leading-tight ${
                         isActive
-                          ? "text-foreground"
+                          ? "text-white"
                           : isDone
-                          ? "text-foreground/70"
+                          ? "text-zinc-400"
                           : isLocked
-                          ? "text-muted-foreground"
-                          : "text-foreground/90"
+                          ? "text-zinc-600"
+                          : "text-zinc-300"
                       }`}
                     >
                       {step.label}
                     </p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight truncate">
+                    <p className="text-[9px] text-zinc-500 mt-0.5 leading-tight truncate">
                       {isDone
                         ? step.completedSummary
                         : isInReview
@@ -267,7 +269,7 @@ export default function JourneyRail({
                   </div>
 
                   {isActive && (
-                    <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <ChevronRight className="h-3 w-3 text-zinc-500 shrink-0" />
                   )}
                   {isRunning && !isActive && (
                     <div className="h-1.5 w-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: step.color }} />
@@ -282,12 +284,12 @@ export default function JourneyRail({
         </div>
       </div>
 
-      {/* Bottom */}
-      <div className="px-4 py-3 border-t border-border">
-        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+      {/* Bottom — Idea */}
+      <div className="px-4 py-3 border-t border-white/[0.06]">
+        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">
           Idea
         </p>
-        <p className="text-[11px] text-foreground/70 leading-relaxed line-clamp-4">
+        <p className="text-[11px] text-zinc-500 leading-relaxed line-clamp-4">
           {project.raw_idea}
         </p>
       </div>

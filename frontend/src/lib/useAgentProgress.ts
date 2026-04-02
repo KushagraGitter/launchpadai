@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { useAuth } from "./auth";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 
 export interface AgentEvent {
   type: string;
@@ -50,7 +50,7 @@ const WS_BASE = process.env.NEXT_PUBLIC_API_URL
   : (typeof window !== "undefined" ? `ws://${window.location.host}` : "");
 
 export function useAgentProgress(projectId: string) {
-  const { getToken } = useAuth();
+  const { getToken } = useClerkAuth();
   const [progress, setProgress] = useState<AgentProgress>(INITIAL_STATE);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,8 +85,8 @@ export function useAgentProgress(projectId: string) {
     throttleTimerRef.current = setTimeout(flushThinking, THROTTLE_MS);
   }, [flushThinking]);
 
-  const connect = useCallback(() => {
-    const token = getToken();
+  const connect = useCallback(async () => {
+    const token = await getToken();
     if (!token || !projectId) return;
 
     if (wsRef.current && wsRef.current.readyState < 2) return;

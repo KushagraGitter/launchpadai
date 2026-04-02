@@ -148,11 +148,32 @@ async def get_current_user_flexible(
         await check_rate_limit(str(user.id), rpm_limit, request)
         return user
 
-    # Fall back to JWT Bearer
+    # Fall back to JWT Bearer (Clerk first, then legacy)
     if credentials:
+        token = credentials.credentials
+
+        # Try Clerk JWT first
+        from app.core.clerk import verify_clerk_token
+        from app.services.clerk_sync import get_or_create_user_from_clerk
+
+        clerk_payload = verify_clerk_token(token)
+        if clerk_payload:
+            clerk_id = clerk_payload.get("sub")
+            if clerk_id:
+                email = clerk_payload.get("email", clerk_payload.get("email_addresses", [{}])[0].get("email_address", ""))
+                name = clerk_payload.get("name", "")
+                if not name:
+                    first = clerk_payload.get("first_name", "")
+                    last = clerk_payload.get("last_name", "")
+                    name = f"{first} {last}".strip() or email.split("@")[0]
+                user = await get_or_create_user_from_clerk(db, clerk_id, email, name)
+                await db.commit()
+                return user
+
+        # Legacy JWT fallback
         from app.core.security import decode_token
 
-        payload = decode_token(credentials.credentials)
+        payload = decode_token(token)
         if payload is None or payload.get("type") != "access":
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 

@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { api, chatApi, ChatMessage } from "@/lib/api";
-import { useAuth } from "@/lib/auth";
+import { useAuth as useClerkAuth } from "@clerk/nextjs";
 import { useToast } from "@/lib/toast";
 
 interface ClarifyingQuestion {
@@ -101,12 +101,11 @@ interface ChatPanelProps {
   onPhaseStarted?: (phase: string) => void;
 }
 
-const PHASE_ORDER = ["discovery", "validation", "landing_page", "prd", "coding_context", "gtm"];
+const PHASE_ORDER = ["discovery", "validation", "prd", "coding_context", "gtm"];
 
 const PHASE_LABELS: Record<string, string> = {
   discovery: "Discovery Session",
   validation: "Idea Validation",
-  landing_page: "Landing Page",
   prd: "PRD Generation",
   coding_context: "Coding Context",
   gtm: "Go-to-Market",
@@ -123,7 +122,7 @@ function ThinkingDots() {
 }
 
 export default function ChatPanel({ projectId, onPhaseStarted }: ChatPanelProps) {
-  const { getToken } = useAuth();
+  const { getToken } = useClerkAuth();
   const toast = useToast();
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState("");
@@ -155,7 +154,7 @@ export default function ChatPanel({ projectId, onPhaseStarted }: ChatPanelProps)
   }, [projectId]);
 
   async function pollPhaseStatus() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     try {
       const phases = await api.phases.list(token, projectId);
@@ -188,7 +187,7 @@ export default function ChatPanel({ projectId, onPhaseStarted }: ChatPanelProps)
   }
 
   async function loadHistory() {
-    const token = getToken();
+    const token = await getToken();
     if (!token) return;
     setIsLoading(true);
     try {
@@ -246,7 +245,7 @@ export default function ChatPanel({ projectId, onPhaseStarted }: ChatPanelProps)
   }
 
   async function handleSend(messageOverride?: string) {
-    const token = getToken();
+    const token = await getToken();
     const userMessage = (messageOverride || input).trim();
     if (!token || !userMessage || isSending) return;
 
@@ -976,7 +975,6 @@ function ResearchIndicator({ query }: { query: string }) {
 const PHASE_LABELS_ALL: Record<string, string> = {
   discovery: "Discovery Session",
   validation: "Idea Validation",
-  landing_page: "Landing Page",
   prd: "PRD Generation",
   coding_context: "Coding Context",
   gtm: "Go-to-Market",
@@ -994,7 +992,7 @@ function TargetedRerunProposalCard({
   projectId: string;
   onAccepted: (msgId: string) => void;
   onDeclined: (msgId: string) => void;
-  getToken: () => string | null;
+  getToken: () => Promise<string | null>;
   isSending: boolean;
 }) {
   const [running, setRunning] = useState(false);
@@ -1002,7 +1000,7 @@ function TargetedRerunProposalCard({
   const isDone = message.proposalAccepted || message.proposalDeclined;
 
   async function handleAccept() {
-    const token = getToken();
+    const token = await getToken();
     if (!token || running) return;
     setRunning(true);
     try {
