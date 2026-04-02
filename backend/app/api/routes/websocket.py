@@ -86,18 +86,46 @@ async def agent_progress_ws(websocket: WebSocket, project_id: str):
             await websocket.close(code=4001)
             return
 
-        payload = decode_token(token)
-        if payload is None or payload.get("type") != "access":
-            await websocket.send_json({"error": "Invalid or expired token"})
-            await websocket.close(code=4001)
-            return
-
-        user_id = uuid.UUID(payload["sub"])
         proj_id = uuid.UUID(project_id)
+        user_db_id: uuid.UUID | None = None
+
+        # 1. Try Clerk JWT (RS256) — used by all current sessions
+        from app.core.clerk import verify_clerk_token
+        from app.models.user import User
+        from sqlalchemy import select as sa_select
+
+        clerk_payload = verify_clerk_token(token)
+        if clerk_payload:
+            clerk_id = clerk_payload.get("sub")
+            if not clerk_id:
+                await websocket.send_json({"error": "Invalid Clerk token"})
+                await websocket.close(code=4001)
+                return
+            async with async_session() as db:
+                result = await db.execute(sa_select(User).where(User.clerk_id == clerk_id))
+                user = result.scalar_one_or_none()
+                if user is None:
+                    await websocket.send_json({"error": "User not found"})
+                    await websocket.close(code=4001)
+                    return
+                user_db_id = user.id
+        else:
+            # 2. Fallback: legacy HS256 JWT where sub is a UUID
+            payload = decode_token(token)
+            if payload is None or payload.get("type") != "access":
+                await websocket.send_json({"error": "Invalid or expired token"})
+                await websocket.close(code=4001)
+                return
+            try:
+                user_db_id = uuid.UUID(payload["sub"])
+            except (KeyError, ValueError):
+                await websocket.send_json({"error": "Invalid token"})
+                await websocket.close(code=4001)
+                return
 
         async with async_session() as db:
             result = await db.execute(
-                select(Project).where(Project.id == proj_id, Project.user_id == user_id)
+                select(Project).where(Project.id == proj_id, Project.user_id == user_db_id)
             )
             if result.scalar_one_or_none() is None:
                 await websocket.send_json({"error": "Project not found"})

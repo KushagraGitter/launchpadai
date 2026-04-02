@@ -45,9 +45,12 @@ const INITIAL_STATE: AgentProgress = {
 // into smooth visible streaming without flooding React with 786 individual setStates.
 const THROTTLE_MS = 120;
 
+// Next.js rewrites() only handle HTTP — WebSocket upgrade requests are NOT proxied.
+// In dev (no NEXT_PUBLIC_API_URL), connect directly to the backend at port 8000.
+// In production, NEXT_PUBLIC_API_URL points to the deployed backend, so replace http→ws.
 const WS_BASE = process.env.NEXT_PUBLIC_API_URL
   ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, "ws")
-  : (typeof window !== "undefined" ? `ws://${window.location.host}` : "");
+  : "ws://localhost:8000";
 
 export function useAgentProgress(projectId: string) {
   const { getToken } = useClerkAuth();
