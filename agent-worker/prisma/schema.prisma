@@ -136,9 +136,9 @@ model ChatMessage {
 }
 
 enum FeedbackType {
-  thumbs_up
-  thumbs_down
-  comment
+  THUMBS_UP
+  THUMBS_DOWN
+  COMMENT
 
   @@map("feedbacktype")
 }
