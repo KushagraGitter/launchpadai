@@ -20,10 +20,11 @@ const BACKEND =
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const res = await fetch(`${BACKEND}/api/landing/${params.slug}`, {
+    const { slug } = await params;
+    const res = await fetch(`${BACKEND}/api/landing/${slug}`, {
       // Cache for 30s at the CDN / Next.js data cache layer
       next: { revalidate: 30 },
     });
