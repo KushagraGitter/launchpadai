@@ -95,28 +95,28 @@ export default function JourneyRail({
   const progressPct = Math.round((completedCount / PHASE_ORDER.length) * 100);
 
   return (
-    <div className="w-56 shrink-0 border-r border-white/[0.06] bg-[#0a0a0f]/50 backdrop-blur-sm flex flex-col overflow-hidden">
+    <div className="w-56 shrink-0 border-r border-border bg-card/50 backdrop-blur-sm flex flex-col overflow-hidden">
       {/* Project identity */}
-      <div className="px-4 pt-5 pb-4 border-b border-white/[0.06]">
+      <div className="px-4 pt-5 pb-4 border-b border-border">
         <div className="flex items-center gap-1.5 mb-1">
-          <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
             Your journey
           </p>
-          <Pencil className="h-2.5 w-2.5 text-zinc-600" />
+          <Pencil className="h-2.5 w-2.5 text-muted-foreground/50" />
         </div>
-        <h2 className="text-sm font-bold text-white leading-snug line-clamp-2">
+        <h2 className="text-sm font-bold text-foreground leading-snug line-clamp-2">
           {project.name}
         </h2>
         {(project.domain || project.target_audience) && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {project.domain && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-accent border border-border rounded-lg px-2 py-0.5">
                 <Globe className="h-2.5 w-2.5" />
                 {project.domain}
               </span>
             )}
             {project.target_audience && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-zinc-400 bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5">
+              <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground bg-accent border border-border rounded-lg px-2 py-0.5">
                 <Users className="h-2.5 w-2.5" />
                 {project.target_audience}
               </span>
@@ -126,14 +126,14 @@ export default function JourneyRail({
 
         <div className="mt-3">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-zinc-500">
+            <span className="text-[10px] text-muted-foreground">
               {completedCount} of {PHASE_ORDER.length} done
             </span>
-            <span className="text-[10px] font-semibold text-zinc-300">
+            <span className="text-[10px] font-semibold text-foreground">
               {progressPct}%
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 shadow-sm shadow-teal-500/30 transition-all duration-700"
               style={{ width: `${progressPct}%` }}
@@ -197,9 +197,9 @@ export default function JourneyRail({
                   disabled={isLocked}
                   className={`relative w-full flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-all duration-200 ${
                     isActive
-                      ? "bg-gradient-to-r from-white/[0.06] to-white/[0.02] border border-white/[0.1] shadow-sm"
+                      ? "bg-accent border border-border shadow-sm"
                       : isClickable
-                      ? "hover:bg-white/[0.04] border border-transparent cursor-pointer"
+                      ? "hover:bg-accent border border-transparent cursor-pointer"
                       : "cursor-default opacity-35 border border-transparent"
                   }`}
                   aria-current={isActive ? "step" : undefined}
@@ -217,11 +217,11 @@ export default function JourneyRail({
                       backgroundColor:
                         isDone || isInReview || isRunning || isActive
                           ? step.glowColor
-                          : "rgba(255,255,255,0.04)",
+                          : "hsl(var(--secondary))",
                       color:
                         isDone || isInReview || isRunning || isActive
                           ? step.color
-                          : "rgb(113, 113, 122)",
+                          : "hsl(var(--muted-foreground))",
                       boxShadow:
                         isActive
                           ? `0 0 12px ${step.glowColor}`
@@ -229,15 +229,15 @@ export default function JourneyRail({
                     }}
                   >
                     {isDone ? (
-                      <Check className="h-3.5 w-3.5 text-green-400" strokeWidth={3} />
+                      <Check className="h-3.5 w-3.5 text-green-500 dark:text-green-400" strokeWidth={3} />
                     ) : isInReview ? (
-                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
                     ) : isRunning ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: step.color }} />
                     ) : isLocked ? (
                       <Lock className="h-3 w-3" />
                     ) : status === "failed" ? (
-                      <AlertCircle className="h-3.5 w-3.5 text-red-400" />
+                      <AlertCircle className="h-3.5 w-3.5 text-red-500 dark:text-red-400" />
                     ) : (
                       <Icon className="h-3.5 w-3.5" />
                     )}
@@ -247,17 +247,17 @@ export default function JourneyRail({
                     <p
                       className={`text-[11px] font-semibold leading-tight ${
                         isActive
-                          ? "text-white"
+                          ? "text-foreground"
                           : isDone
-                          ? "text-zinc-400"
+                          ? "text-foreground/60"
                           : isLocked
-                          ? "text-zinc-600"
-                          : "text-zinc-300"
+                          ? "text-muted-foreground"
+                          : "text-foreground/80"
                       }`}
                     >
                       {step.label}
                     </p>
-                    <p className="text-[9px] text-zinc-500 mt-0.5 leading-tight truncate">
+                    <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight truncate">
                       {isDone
                         ? step.completedSummary
                         : isInReview
@@ -269,13 +269,13 @@ export default function JourneyRail({
                   </div>
 
                   {isActive && (
-                    <ChevronRight className="h-3 w-3 text-zinc-500 shrink-0" />
+                    <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                   )}
                   {isRunning && !isActive && (
                     <div className="h-1.5 w-1.5 rounded-full animate-pulse shrink-0" style={{ backgroundColor: step.color }} />
                   )}
                   {isInReview && !isActive && (
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0" />
                   )}
                 </button>
               );
@@ -285,11 +285,11 @@ export default function JourneyRail({
       </div>
 
       {/* Bottom — Idea */}
-      <div className="px-4 py-3 border-t border-white/[0.06]">
-        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">
+      <div className="px-4 py-3 border-t border-border">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
           Idea
         </p>
-        <p className="text-[11px] text-zinc-500 leading-relaxed line-clamp-4">
+        <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-4">
           {project.raw_idea}
         </p>
       </div>

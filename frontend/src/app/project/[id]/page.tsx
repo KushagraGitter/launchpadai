@@ -92,7 +92,7 @@ export default function ProjectPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0a0a0f]">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
       </div>
     );
@@ -101,36 +101,36 @@ export default function ProjectPage() {
   if (!project) return null;
 
   return (
-    <div className="flex h-screen flex-col bg-[#0a0a0f] text-zinc-200">
-      {/* Subtle background aurora */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      {/* Subtle background aurora (dark only) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden dark:block hidden">
         <div className="absolute top-[-10%] left-[-5%] h-[400px] w-[500px] rounded-full bg-gradient-to-br from-teal-600/[0.04] via-emerald-500/[0.03] to-transparent blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-5%] h-[350px] w-[400px] rounded-full bg-gradient-to-bl from-violet-600/[0.04] via-purple-500/[0.03] to-transparent blur-[100px]" />
       </div>
 
       {/* Header */}
-      <header className="relative flex h-13 shrink-0 items-center justify-between border-b border-white/[0.06] bg-[#0a0a0f]/80 backdrop-blur-2xl px-4">
+      <header className="relative flex h-13 shrink-0 items-center justify-between border-b border-border bg-background/80 backdrop-blur-2xl px-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-sm text-zinc-400 hover:bg-white/[0.05] hover:text-white transition-all duration-200"
+            className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200"
             aria-label="Back to dashboard"
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </button>
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className="h-4 w-px bg-border" />
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 shadow-md shadow-teal-500/20">
             <Rocket className="h-3.5 w-3.5 text-white -rotate-45" />
           </div>
-          <h1 className="text-sm font-semibold text-white truncate max-w-xs">
+          <h1 className="text-sm font-semibold text-foreground truncate max-w-xs">
             {project.name}
           </h1>
-          <button className="text-zinc-500 hover:text-white transition-colors" title="Edit project">
+          <button className="text-muted-foreground hover:text-foreground transition-colors" title="Edit project">
             <Pencil className="h-3 w-3" />
           </button>
           {project.domain && (
-            <span className="rounded-lg bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[10px] text-zinc-400 uppercase tracking-wide">
+            <span className="rounded-lg bg-accent border border-border px-2 py-0.5 text-[10px] text-muted-foreground uppercase tracking-wide">
               {project.domain}
             </span>
           )}
@@ -140,7 +140,7 @@ export default function ProjectPage() {
           {runningPhase && (
             <div className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 backdrop-blur-sm">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs text-emerald-400 font-medium">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                 Working on it...
               </span>
             </div>
@@ -157,12 +157,12 @@ export default function ProjectPage() {
           )}
           <button
             onClick={() => setTheme(themeMode === "dark" ? "light" : "dark")}
-            className="rounded-lg p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.05] transition-all"
+            className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
             title={`Switch to ${themeMode === "dark" ? "light" : "dark"} mode`}
           >
             {themeMode === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <button className="rounded-lg p-1.5 text-zinc-500 hover:text-white hover:bg-white/[0.05] transition-all" title="Notifications">
+          <button className="rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-all" title="Notifications">
             <Bell className="h-4 w-4" />
           </button>
           <ProfileDropdown compact />
@@ -192,7 +192,7 @@ export default function ProjectPage() {
         </div>
 
         {/* Right panel — Chat */}
-        <div className="w-80 xl:w-96 shrink-0 border-l border-white/[0.06] overflow-hidden">
+        <div className="w-80 xl:w-96 shrink-0 border-l border-border overflow-hidden">
           <ChatPanel
             projectId={projectId}
             onPhaseStarted={handlePhaseStarted}

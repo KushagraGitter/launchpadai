@@ -580,7 +580,7 @@ export default function ChatPanel({ projectId, onPhaseStarted }: ChatPanelProps)
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none prose-p:my-1.5 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1 prose-headings:my-2 prose-headings:text-foreground prose-strong:text-foreground prose-code:text-emerald-300 prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-a:text-emerald-400">
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-li:my-0.5 prose-ul:my-1 prose-ol:my-1 prose-headings:my-2 prose-headings:text-foreground prose-strong:text-foreground prose-code:text-emerald-600 dark:prose-code:text-emerald-300 prose-code:bg-secondary prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-a:text-emerald-600 dark:prose-a:text-emerald-400">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                         {msg.isStreaming && !msg.questions && msg.content.length === 0 && (
                           <ThinkingDots />
@@ -590,7 +590,7 @@ export default function ChatPanel({ projectId, onPhaseStarted }: ChatPanelProps)
                         )}
                       </div>
                     ) : (
-                      <div className="prose prose-sm prose-invert max-w-none prose-p:my-0 prose-strong:text-white [&_*]:text-white">
+                      <div className="prose prose-sm max-w-none prose-p:my-0 prose-strong:text-white [&_*]:text-white">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     )}
@@ -697,7 +697,7 @@ function PhaseCompletionNotification({
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="prose prose-sm prose-invert max-w-none prose-p:my-0 prose-p:text-[13px] prose-p:leading-relaxed prose-strong:text-emerald-300">
+            <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-0 prose-p:text-[13px] prose-p:leading-relaxed prose-strong:text-emerald-600 dark:prose-strong:text-emerald-300">
               <ReactMarkdown>{message.content}</ReactMarkdown>
             </div>
           </div>
